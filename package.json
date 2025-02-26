@@ -1,0 +1,71 @@
+{
+  "name": "formfillvoiceai",
+  "version": "1.0.0",
+  "description": "A desktop application for converting voice notes into healthcare form entries using AI in a secure and reliable manner.",
+  "main": "src/backend/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "test": "echo \"Error: no test specified\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/binodthapachhetry/FormFillVoiceAI.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/binodthapachhetry/FormFillVoiceAI/issues"
+  },
+  "homepage": "https://github.com/binodthapachhetry/FormFillVoiceAI#readme",
+  "devDependencies": {
+    "electron": "^34.2.0",
+    "electron-builder": "^25.1.8",
+    "eslint": "^9.21.0",
+    "eslint-config-prettier": "^10.0.2",
+    "eslint-plugin-prettier": "^5.2.3",
+    "eslint-plugin-react": "^7.37.4",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-vue": "^9.32.0",
+    "husky": "^8.0.0",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.5.2"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,css,scss,md}": [
+      "prettier --write"
+    ],
+    "*.py": [
+      "black",
+      "isort",
+      "flake8"
+    ]
+  },
+  "dependencies": {
+    "electron-store": "^10.0.1"
+  },
+  "build": {
+    "appId": "com.yourcompany.formfillvoiceai",
+    "productName": "FormFillVoiceAI",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.medical"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}

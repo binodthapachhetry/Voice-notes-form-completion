@@ -9,6 +9,7 @@ FormFillVoiceAI streamlines healthcare documentation by automatically transcribi
 ## Development Roadmap
 
 ### Phase 1: Project Setup and Architecture Design
+
 - [ ] Define system architecture and component interactions
 - [ ] Establish security protocols for handling PHI (Protected Health Information)
 - [ ] Design database schema for storing form templates and user preferences
@@ -17,6 +18,7 @@ FormFillVoiceAI streamlines healthcare documentation by automatically transcribi
 - [ ] Define API contracts between components
 
 ### Phase 2: Speech-to-Text Implementation
+
 - [ ] Research and select appropriate STT technology (e.g., Whisper, Google Speech-to-Text)
 - [ ] Implement audio recording functionality
 - [ ] Develop speech-to-text conversion pipeline
@@ -25,6 +27,7 @@ FormFillVoiceAI streamlines healthcare documentation by automatically transcribi
 - [ ] Implement error handling for failed transcriptions
 
 ### Phase 3: Entity Recognition with LLMs
+
 - [ ] Design prompt engineering system for healthcare context
 - [ ] Implement entity extraction from transcribed text
 - [ ] Develop context-aware processing using form templates
@@ -33,6 +36,7 @@ FormFillVoiceAI streamlines healthcare documentation by automatically transcribi
 - [ ] Implement confidence scoring for extracted entities
 
 ### Phase 4: Form Filling Automation
+
 - [ ] Implement form template management system
 - [ ] Develop computer vision model integration for form recognition
 - [ ] Create form field detection and classification
@@ -41,6 +45,7 @@ FormFillVoiceAI streamlines healthcare documentation by automatically transcribi
 - [ ] Develop export functionality for completed forms
 
 ### Phase 5: Security and Compliance
+
 - [ ] Implement end-to-end encryption for data at rest and in transit
 - [ ] Develop audit logging for all system operations
 - [ ] Create user authentication and authorization system
@@ -49,6 +54,7 @@ FormFillVoiceAI streamlines healthcare documentation by automatically transcribi
 - [ ] Create privacy policy and terms of service documentation
 
 ### Phase 6: Testing and Quality Assurance
+
 - [ ] Develop comprehensive test suite for all components
 - [ ] Perform security penetration testing
 - [ ] Conduct user acceptance testing with healthcare professionals
@@ -57,6 +63,7 @@ FormFillVoiceAI streamlines healthcare documentation by automatically transcribi
 - [ ] Conduct compliance review with healthcare regulations
 
 ### Phase 7: Deployment and Documentation
+
 - [ ] Create installation package for multiple operating systems
 - [ ] Develop comprehensive user documentation
 - [ ] Create administrator guide for system configuration
@@ -64,7 +71,7 @@ FormFillVoiceAI streamlines healthcare documentation by automatically transcribi
 - [ ] Develop onboarding tutorials for new users
 - [ ] Create technical documentation for future maintenance
 
-## Technical Stack (Proposed)
+## Technical Stack
 
 - **Frontend**: Electron.js with React/Vue for cross-platform desktop application
 - **Backend**: Python for AI/ML processing, Node.js for application logic
@@ -76,12 +83,12 @@ FormFillVoiceAI streamlines healthcare documentation by automatically transcribi
 
 ## Getting Started
 
-*Coming soon*
+_Coming soon_
 
 ## Contributing
 
-*Coming soon*
+_Coming soon_
 
 ## License
 
-*License information to be added*
+_License information to be added_

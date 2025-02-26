@@ -1,1 +1,7 @@
 .aider*
+node_modules
+.DS_Store
+.eslintrc.js
+.github/
+.husky/
+.prettierrc.js
