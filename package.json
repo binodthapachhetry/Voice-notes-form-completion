@@ -4,21 +4,9 @@
   "description": "A desktop application for converting voice notes into healthcare form entries using AI in a secure and reliable manner.",
   "main": "src/backend/main.js",
   "scripts": {
-<<<<<<< Updated upstream
     "start": "electron .",
     "build": "electron-builder",
     "test": "echo \"Error: no test specified\" && exit 0"
-=======
-    "start": "electron .",                                                                                                                            
-    "build": "electron-builder",
-    "test": "echo \"Error: no test specified\" && exit 0",
-    "lint": "eslint --ext .js,.jsx,.ts,.tsx src/",
-    "lint:fix": "eslint --ext .js,.jsx,.ts,.tsx src/ --fix",
-    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss}\"",
-    "lint:python": "flake8 src/ai",
-    "format:python": "black src/ai && isort src/ai",
-    "prepare": "husky install"
->>>>>>> Stashed changes
   },
   "repository": {
     "type": "git",
@@ -60,7 +48,6 @@
   "dependencies": {
     "electron-store": "^10.0.1"
   },
-<<<<<<< Updated upstream
   "build": {
     "appId": "com.yourcompany.formfillvoiceai",
     "productName": "FormFillVoiceAI",
@@ -81,26 +68,4 @@
       "target": "AppImage"
     }
   }
-=======
-  "build": {                                                                                                                                          
-     "appId": "com.yourcompany.formfillvoiceai",                                                                                                       
-     "productName": "FormFillVoiceAI",                                                                                                                 
-     "directories": {                                                                                                                                  
-       "output": "dist"                                                                                                                                
-     },                                                                                                                                                
-     "files": [                                                                                                                                        
-       "src/**/*",                                                                                                                                     
-       "package.json"                                                                                                                                  
-     ],                                                                                                                                                
-     "mac": {                                                                                                                                          
-       "category": "public.app-category.medical"                                                                                                       
-     },                                                                                                                                                
-     "win": {                                                                                                                                          
-       "target": "nsis"                                                                                                                                
-     },                                                                                                                                                
-     "linux": {                                                                                                                                        
-       "target": "AppImage"                                                                                                                            
-     }                                                                                                                                                 
-   }   
->>>>>>> Stashed changes
 }
