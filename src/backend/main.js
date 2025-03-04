@@ -46,13 +46,15 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
  // IPC Handlers for recording functionality                                                                                                           
  ipcMain.handle('start-recording', async () => {                                                                                                       
    console.log('Recording started');                                                                                                                   
-   // Placeholder for actual recording logic                                                                                                           
+   // This is now just a notification that frontend recording has started
+   // Actual recording happens in the renderer process using Web Audio API                                                                                           
    return { success: true, message: 'Recording started' };                                                                                             
  });                                                                                                                                                   
                                                                                                                                                        
  ipcMain.handle('stop-recording', async () => {                                                                                                        
    console.log('Recording stopped');                                                                                                                   
-   // Placeholder for actual recording stop logic                                                                                                      
+   // In a real implementation, we would process the audio file here
+   // For now, we'll continue using the mock transcription                                                                                                      
    return {                                                                                                                                            
      success: true,                                                                                                                                    
      message: 'Recording stopped',                                                                                                                     

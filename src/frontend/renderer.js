@@ -3,7 +3,8 @@ const recordButton = document.getElementById('recordButton');
 const recordingStatus = document.getElementById('recordingStatus');                                                                                   
 const recordingTime = document.getElementById('recordingTime');                                                                                       
 const transcriptionText = document.getElementById('transcriptionText');                                                                               
-const saveFormButton = document.getElementById('saveFormButton');                                                                                     
+const saveFormButton = document.getElementById('saveFormButton');
+const audioVisualizer = document.getElementById('audioVisualizer');                                                                                     
                                                                                                                                                       
 // Form fields                                                                                                                                        
 const patientNameInput = document.getElementById('patientName');                                                                                      
@@ -16,7 +17,17 @@ const medicalHistoryInput = document.getElementById('medicalHistory');
 // State                                                                                                                                              
 let isRecording = false;                                                                                                                              
 let recordingInterval;                                                                                                                                
-let recordingSeconds = 0;                                                                                                                             
+let recordingSeconds = 0;
+
+// Audio recording variables
+let audioContext;
+let audioStream;
+let audioRecorder;
+let audioProcessor;
+let audioAnalyser;
+let audioChunks = [];
+let visualizerContext;
+let animationFrame;                                                                                                                             
                                                                                                                                                       
 // Event Listeners                                                                                                                                    
 recordButton.addEventListener('click', toggleRecording);                                                                                              
@@ -25,31 +36,54 @@ saveFormButton.addEventListener('click', saveForm);
 // Functions                                                                                                                                          
 async function toggleRecording() {                                                                                                                    
   if (!isRecording) {                                                                                                                                 
-    // Start recording                                                                                                                                
-    const result = await window.api.startRecording();                                                                                                 
-    if (result.success) {                                                                                                                             
-      isRecording = true;                                                                                                                             
-      recordButton.textContent = 'Stop Recording';                                                                                                    
-      recordButton.classList.add('recording');                                                                                                        
-      recordingStatus.textContent = 'Recording...';                                                                                                   
-      startRecordingTimer();                                                                                                                          
-    }                                                                                                                                                 
+    try {
+      // Initialize audio recording
+      await initAudioRecording();
+      
+      // Notify backend that recording started
+      const result = await window.api.startRecording();                                                                                                 
+      
+      if (result.success) {                                                                                                                             
+        isRecording = true;                                                                                                                             
+        recordButton.textContent = 'Stop Recording';                                                                                                    
+        recordButton.classList.add('recording');                                                                                                        
+        recordingStatus.textContent = 'Recording...';                                                                                                   
+        startRecordingTimer();
+        startAudioVisualization();                                                                                                                          
+      }
+    } catch (error) {
+      console.error('Error starting recording:', error);
+      recordingStatus.textContent = 'Error: ' + error.message;
+    }                                                                                                                                 
   } else {                                                                                                                                            
-    // Stop recording                                                                                                                                 
-    const result = await window.api.stopRecording();                                                                                                  
-    if (result.success) {                                                                                                                             
-      isRecording = false;                                                                                                                            
-      recordButton.textContent = 'Start Recording';                                                                                                   
-      recordButton.classList.remove('recording');                                                                                                     
-      recordingStatus.textContent = 'Processing...';                                                                                                  
-      stopRecordingTimer();                                                                                                                           
+    try {
+      // Stop audio recording
+      const audioBlob = await stopAudioRecording();
+      
+      // Notify backend that recording stopped
+      const result = await window.api.stopRecording();                                                                                                  
+      
+      if (result.success) {                                                                                                                             
+        isRecording = false;                                                                                                                            
+        recordButton.textContent = 'Start Recording';                                                                                                   
+        recordButton.classList.remove('recording');                                                                                                     
+        recordingStatus.textContent = 'Processing...';                                                                                                  
+        stopRecordingTimer();                                                                                                                           
                                                                                                                                                       
-      // Display transcription                                                                                                                        
-      transcriptionText.value = result.transcription;                                                                                                 
+        // Display transcription                                                                                                                        
+        transcriptionText.value = result.transcription;                                                                                                 
                                                                                                                                                       
-      // Process transcription                                                                                                                        
-      processTranscription(result.transcription);                                                                                                     
-    }                                                                                                                                                 
+        // Process transcription                                                                                                                        
+        processTranscription(result.transcription);                                                                                                     
+      }
+    } catch (error) {
+      console.error('Error stopping recording:', error);
+      recordingStatus.textContent = 'Error: ' + error.message;
+      isRecording = false;
+      recordButton.textContent = 'Start Recording';
+      recordButton.classList.remove('recording');
+      stopRecordingTimer();
+    }                                                                                                                                 
   }                                                                                                                                                   
 }                                                                                                                                                     
                                                                                                                                                       
@@ -70,6 +104,124 @@ function updateRecordingTime() {
   const minutes = Math.floor(recordingSeconds / 60).toString().padStart(2, '0');                                                                      
   const seconds = (recordingSeconds % 60).toString().padStart(2, '0');                                                                                
   recordingTime.textContent = `${minutes}:${seconds}`;                                                                                                
+}
+
+// Audio Recording Functions
+async function initAudioRecording() {
+  // Reset audio chunks
+  audioChunks = [];
+  
+  // Get audio stream
+  audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  
+  // Create audio context
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  
+  // Create source from stream
+  const source = audioContext.createMediaStreamSource(audioStream);
+  
+  // Create analyzer for visualization
+  audioAnalyser = audioContext.createAnalyser();
+  audioAnalyser.fftSize = 256;
+  source.connect(audioAnalyser);
+  
+  // Setup recorder
+  audioRecorder = new MediaRecorder(audioStream);
+  
+  // Event handler for data available
+  audioRecorder.ondataavailable = (event) => {
+    if (event.data.size > 0) {
+      audioChunks.push(event.data);
+    }
+  };
+  
+  // Start recording
+  audioRecorder.start();
+  
+  // Initialize visualizer
+  visualizerContext = audioVisualizer.getContext('2d');
+  audioVisualizer.width = audioVisualizer.clientWidth;
+  audioVisualizer.height = audioVisualizer.clientHeight;
+}
+
+async function stopAudioRecording() {
+  return new Promise((resolve, reject) => {
+    if (!audioRecorder) {
+      reject(new Error('No active recorder'));
+      return;
+    }
+    
+    // Stop the animation
+    if (animationFrame) {
+      cancelAnimationFrame(animationFrame);
+      animationFrame = null;
+    }
+    
+    // Event for when recording stops
+    audioRecorder.onstop = () => {
+      // Create blob from chunks
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      
+      // Clean up
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+      }
+      
+      audioStream = null;
+      audioRecorder = null;
+      audioAnalyser = null;
+      
+      // Clear visualizer
+      if (visualizerContext) {
+        visualizerContext.clearRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+      }
+      
+      resolve(audioBlob);
+    };
+    
+    // Stop recording
+    audioRecorder.stop();
+  });
+}
+
+function startAudioVisualization() {
+  if (!audioAnalyser || !visualizerContext) return;
+  
+  const bufferLength = audioAnalyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  
+  visualizerContext.clearRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+  
+  function draw() {
+    if (!isRecording) return;
+    
+    animationFrame = requestAnimationFrame(draw);
+    
+    audioAnalyser.getByteFrequencyData(dataArray);
+    
+    visualizerContext.fillStyle = '#f0f4f8';
+    visualizerContext.fillRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+    
+    const barWidth = (audioVisualizer.width / bufferLength) * 2.5;
+    let x = 0;
+    
+    for (let i = 0; i < bufferLength; i++) {
+      const barHeight = dataArray[i] / 255 * audioVisualizer.height;
+      
+      // Use a gradient based on amplitude
+      const intensity = dataArray[i] / 255;
+      const r = Math.floor(39 + (intensity * 180)); // 2563eb -> #1d4ed8
+      const g = Math.floor(99 + (intensity * 80));
+      const b = Math.floor(235 - (intensity * 100));
+      
+      visualizerContext.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      visualizerContext.fillRect(x, audioVisualizer.height - barHeight, barWidth, barHeight);
+      
+      x += barWidth + 1;
+    }
+  }
+  
+  draw();
 }                                                                                                                                                     
                                                                                                                                                       
 async function processTranscription(transcription) {                                                                                                  
