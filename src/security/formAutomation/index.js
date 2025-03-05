@@ -25,6 +25,7 @@ let secureWorker = null;
 let webAuthnManager = null;
 let isInitialized = false;
 let auditLogger = null;
+let authSessionKey = null; // Store authentication key for reuse
 
 /**
  * Initialize the form automation module
@@ -33,6 +34,11 @@ let auditLogger = null;
  * @returns {Promise<Object>} - The initialized form automation instance
  */
 export async function initialize(config, authOptions = {}) {
+  // Store authentication key if provided
+  if (authOptions.authKey && authOptions.storeAuthSession) {
+    authSessionKey = authOptions.authKey;
+    console.log('Stored authentication key for session reuse');
+  }
   // Validate the provided configuration
   const validationResult = validateEncryptedConfig(config);
   
@@ -93,9 +99,16 @@ export async function fillForm(formSelector, encryptedConfig, key, options = {})
     // Start audit logging
     const auditSession = startAuditSession(formSelector, encryptedConfig.metadata);
     
-    // Get decryption key from WebAuthn if not provided
+    // Get decryption key from various sources in order of preference
     let decryptionKey = key;
-    if (!decryptionKey && webAuthnManager) {
+    
+    // Use stored session key if available and skipAuthentication is true
+    if (!decryptionKey && authSessionKey && options.skipAuthentication) {
+      decryptionKey = authSessionKey;
+      console.log('Using stored authentication session key');
+    }
+    // Otherwise, get key from WebAuthn if available
+    else if (!decryptionKey && webAuthnManager && !options.skipAuthentication) {
       const authResult = await webAuthnManager.authenticate();
       if (!authResult.success) {
         throw new Error('WebAuthn authentication failed');
