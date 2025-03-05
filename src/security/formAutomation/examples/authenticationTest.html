@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Automation Authentication Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        .panel {
+            flex: 1;
+            background-color: #f5f7fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .form-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        textarea {
+            min-height: 100px;
+        }
+        button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        button.secondary {
+            background-color: #6b7280;
+        }
+        button.secondary:hover {
+            background-color: #4b5563;
+        }
+        #log {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            height: 200px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 4px;
+            background-color: #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Form Automation Authentication Test</h1>
+    
+    <div class="container">
+        <div class="panel">
+            <h2>WebAuthn Authentication</h2>
+            <p>Use hardware-backed authentication with WebAuthn</p>
+            
+            <button id="register-webauthn">Register WebAuthn Credential</button>
+            <button id="authenticate-webauthn">Authenticate with WebAuthn</button>
+            <button id="fill-form-webauthn">Fill Form with WebAuthn</button>
+            
+            <div id="webauthn-status" class="status">Ready</div>
+        </div>
+        
+        <div class="panel">
+            <h2>Direct Key Authentication</h2>
+            <p>Use direct encryption key for authentication</p>
+            
+            <button id="generate-key">Generate Encryption Key</button>
+            <button id="fill-form-direct">Fill Form with Direct Key</button>
+            
+            <div id="direct-status" class="status">Ready</div>
+        </div>
+    </div>
+    
+    <div class="form-container">
+        <h2>Healthcare Form</h2>
+        <form id="healthcare-form">
+            <div class="form-group">
+                <label for="symptoms">Symptoms:</label>
+                <textarea id="symptoms" name="symptoms"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="duration">Duration:</label>
+                <input type="text" id="duration" name="duration">
+            </div>
+            
+            <div class="form-group">
+                <label for="medications">Current Medications:</label>
+                <textarea id="medications" name="medications"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="medical-history">Medical History:</label>
+                <textarea id="medical-history" name="medical_history"></textarea>
+            </div>
+        </form>
+        
+        <button id="reset-form" class="secondary">Reset Form</button>
+    </div>
+    
+    <h2>Log</h2>
+    <div id="log"></div>
+    
+    <script type="module">
+        import { 
+            initialize, 
+            registerWebAuthn, 
+            authenticateWebAuthn, 
+            hasWebAuthnCredential,
+            createEncryptedConfig,
+            fillForm,
+            cleanup 
+        } from '../index.js';
+        import { sampleEhrDecryptedData } from './sampleEhrFormConfig.js';
+        import { checkEnvironmentCompatibility } from './debugUtils.js';
+        
+        // DOM Elements
+        const registerWebAuthnBtn = document.getElementById('register-webauthn');
+        const authenticateWebAuthnBtn = document.getElementById('authenticate-webauthn');
+        const fillFormWebAuthnBtn = document.getElementById('fill-form-webauthn');
+        const generateKeyBtn = document.getElementById('generate-key');
+        const fillFormDirectBtn = document.getElementById('fill-form-direct');
+        const resetFormBtn = document.getElementById('reset-form');
+        const webAuthnStatus = document.getElementById('webauthn-status');
+        const directStatus = document.getElementById('direct-status');
+        const logElement = document.getElementById('log');
+        
+        // State
+        let encryptionKey = null;
+        let webAuthnAuthenticated = false;
+        let encryptedConfig = null;
+        
+        // Logging function
+        function log(message) {
+            console.log(message);
+            const entry = document.createElement('div');
+            entry.textContent = typeof message === 'object' 
+                ? JSON.stringify(message, null, 2) 
+                : message;
+            logElement.appendChild(entry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // Initialize
+        async function init() {
+            try {
+                // Check environment compatibility
+                const compatibility = checkEnvironmentCompatibility();
+                log('Environment compatibility:');
+                log(compatibility);
+                
+                if (!compatibility.webAuthnSupported) {
+                    webAuthnStatus.textContent = 'WebAuthn not supported in this browser';
+                    registerWebAuthnBtn.disabled = true;
+                    authenticateWebAuthnBtn.disabled = true;
+                    fillFormWebAuthnBtn.disabled = true;
+                }
+                
+                // Initialize the module with a basic config
+                await initialize({
+                    metadata: {
+                        version: "1.0.0",
+                        createdAt: new Date().toISOString(),
+                        formId: "auth-test-form",
+                        formName: "Authentication Test Form"
+                    },
+                    security: {
+                        encryptionMethod: "AES-256-GCM",
+                        iv: "dGhpc2lzYXNhbXBsZWl2Zm9yZGVtbw==",
+                        authTag: "dGhpc2lzYXNhbXBsZWF1dGh0YWc="
+                    },
+                    formData: {
+                        encryptedData: "ZW5jcnlwdGVkZGF0YXdvdWxkYmVoZXJlaW5wcm9kdWN0aW9u"
+                    }
+                }, {
+                    userId: "test-user-" + Date.now()
+                });
+                
+                log('Module initialized successfully');
+                
+                // Check if WebAuthn credential exists
+                const hasCredential = await hasWebAuthnCredential();
+                if (hasCredential) {
+                    webAuthnStatus.textContent = 'WebAuthn credential found';
+                    log('Existing WebAuthn credential found');
+                }
+            } catch (error) {
+                log(`Initialization error: ${error.message}`);
+                console.error(error);
+            }
+        }
+        
+        // WebAuthn Registration
+        registerWebAuthnBtn.addEventListener('click', async () => {
+            try {
+                webAuthnStatus.textContent = 'Registering...';
+                log('Registering WebAuthn credential...');
+                
+                const result = await registerWebAuthn('Test User');
+                
+                if (result.success) {
+                    webAuthnStatus.textContent = 'Registration successful';
+                    log('WebAuthn registration successful');
+                    
+                    // Store credential in localStorage for demo purposes
+                    localStorage.setItem('webauthn-credential', JSON.stringify(result.credential));
+                } else {
+                    webAuthnStatus.textContent = 'Registration failed';
+                    log(`WebAuthn registration failed: ${result.error}`);
+                }
+            } catch (error) {
+                webAuthnStatus.textContent = 'Registration error';
+                log(`WebAuthn registration error: ${error.message}`);
+                console.error(error);
+            }
+        });
+        
+        // WebAuthn Authentication
+        authenticateWebAuthnBtn.addEventListener('click', async () => {
+            try {
+                webAuthnStatus.textContent = 'Authenticating...';
+                log('Authenticating with WebAuthn...');
+                
+                const result = await authenticateWebAuthn();
+                
+                if (result.success) {
+                    webAuthnAuthenticated = true;
+                    webAuthnStatus.textContent = 'Authentication successful';
+                    log('WebAuthn authentication successful');
+                    
+                    // Create encrypted config with the WebAuthn-derived key
+                    encryptedConfig = await createEncryptedConfig(
+                        sampleEhrDecryptedData,
+                        result.key,
+                        {
+                            formId: 'webauthn-protected-form',
+                            formName: 'WebAuthn Protected Form',
+                            description: 'Form protected with WebAuthn authentication',
+                            createdBy: 'test-user'
+                        }
+                    );
+                    
+                    log('Created encrypted configuration with WebAuthn key');
+                } else {
+                    webAuthnStatus.textContent = 'Authentication failed';
+                    log(`WebAuthn authentication failed: ${result.error}`);
+                }
+            } catch (error) {
+                webAuthnStatus.textContent = 'Authentication error';
+                log(`WebAuthn authentication error: ${error.message}`);
+                console.error(error);
+            }
+        });
+        
+        // Fill Form with WebAuthn
+        fillFormWebAuthnBtn.addEventListener('click', async () => {
+            try {
+                if (!webAuthnAuthenticated || !encryptedConfig) {
+                    webAuthnStatus.textContent = 'Please authenticate first';
+                    log('Please authenticate with WebAuthn first');
+                    return;
+                }
+                
+                webAuthnStatus.textContent = 'Filling form...';
+                log('Filling form with WebAuthn authentication...');
+                
+                // Fill the form using the WebAuthn-derived key
+                const result = await fillForm('#healthcare-form', encryptedConfig);
+                
+                webAuthnStatus.textContent = 'Form filled successfully';
+                log('Form filled with WebAuthn authentication');
+                log(result);
+            } catch (error) {
+                webAuthnStatus.textContent = 'Form filling error';
+                log(`Form filling error: ${error.message}`);
+                console.error(error);
+            }
+        });
+        
+        // Generate Direct Key
+        generateKeyBtn.addEventListener('click', async () => {
+            try {
+                directStatus.textContent = 'Generating key...';
+                log('Generating encryption key...');
+                
+                // Generate a new AES-GCM key
+                const key = await crypto.subtle.generateKey(
+                    {
+                        name: 'AES-GCM',
+                        length: 256
+                    },
+                    true,
+                    ['encrypt', 'decrypt']
+                );
+                
+                // Export the key for use
+                encryptionKey = await crypto.subtle.exportKey('raw', key);
+                
+                directStatus.textContent = 'Key generated successfully';
+                log('Encryption key generated successfully');
+                
+                // Create encrypted config with the direct key
+                encryptedConfig = await createEncryptedConfig(
+                    sampleEhrDecryptedData,
+                    encryptionKey,
+                    {
+                        formId: 'direct-key-form',
+                        formName: 'Direct Key Form',
+                        description: 'Form protected with direct encryption key',
+                        createdBy: 'test-user'
+                    }
+                );
+                
+                log('Created encrypted configuration with direct key');
+            } catch (error) {
+                directStatus.textContent = 'Key generation error';
+                log(`Key generation error: ${error.message}`);
+                console.error(error);
+            }
+        });
+        
+        // Fill Form with Direct Key
+        fillFormDirectBtn.addEventListener('click', async () => {
+            try {
+                if (!encryptionKey || !encryptedConfig) {
+                    directStatus.textContent = 'Please generate a key first';
+                    log('Please generate an encryption key first');
+                    return;
+                }
+                
+                directStatus.textContent = 'Filling form...';
+                log('Filling form with direct key authentication...');
+                
+                // Fill the form using the direct key
+                const result = await fillForm('#healthcare-form', encryptedConfig, encryptionKey);
+                
+                directStatus.textContent = 'Form filled successfully';
+                log('Form filled with direct key authentication');
+                log(result);
+            } catch (error) {
+                directStatus.textContent = 'Form filling error';
+                log(`Form filling error: ${error.message}`);
+                console.error(error);
+            }
+        });
+        
+        // Reset Form
+        resetFormBtn.addEventListener('click', () => {
+            document.getElementById('healthcare-form').reset();
+            log('Form reset');
+        });
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

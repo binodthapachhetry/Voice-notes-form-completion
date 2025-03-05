@@ -73,4 +73,6 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}/`);
   console.log(`Open http://localhost:${PORT}/ in your browser to test the form automation`);
+  console.log(`Open http://localhost:${PORT}/examples/authenticationTest.html to test authentication methods`);
+  console.log(`Open http://localhost:${PORT}/examples/simpleTest.html for a simple form filling test`);
 });
