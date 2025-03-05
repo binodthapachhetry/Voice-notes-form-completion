@@ -149,7 +149,7 @@
             cleanup 
         } from '../index.js';
         import { sampleEhrDecryptedData } from './sampleEhrFormConfig.js';
-        import { checkEnvironmentCompatibility } from './debugUtils.js';
+        import { checkEnvironmentCompatibility, testFormFilling } from './debugUtils.js';
         
         // DOM Elements
         const registerWebAuthnBtn = document.getElementById('register-webauthn');
@@ -318,7 +318,60 @@
                 webAuthnStatus.textContent = 'Filling form...';
                 log('Filling form with WebAuthn authentication...');
                 
-                // Fill the form using the WebAuthn-derived key
+                // Check if the form exists
+                const form = document.querySelector('#healthcare-form');
+                if (!form) {
+                    log('Error: Form not found in DOM');
+                    webAuthnStatus.textContent = 'Form not found';
+                    return;
+                }
+                log('Form found in DOM: ' + form.id);
+                
+                // Log form fields
+                const formFields = Array.from(form.elements);
+                log(`Form has ${formFields.length} elements`);
+                formFields.forEach(field => {
+                    log(`Field: ${field.name || field.id}, Type: ${field.type}`);
+                });
+                
+                // Manually fill the form for testing
+                log('Manually filling form fields...');
+                
+                // Get field values from sample data
+                const symptomsField = sampleEhrDecryptedData.fields.find(f => f.id === 'patientSymptoms');
+                const durationField = sampleEhrDecryptedData.fields.find(f => f.id === 'symptomDuration');
+                const medicationsField = sampleEhrDecryptedData.fields.find(f => f.id === 'currentMedications');
+                const historyField = sampleEhrDecryptedData.fields.find(f => f.id === 'medicalHistory');
+                
+                // Fill the form fields
+                if (symptomsField && document.getElementById('symptoms')) {
+                    document.getElementById('symptoms').value = symptomsField.value;
+                    log('Filled symptoms field');
+                }
+                
+                if (durationField && document.getElementById('duration')) {
+                    document.getElementById('duration').value = durationField.value;
+                    log('Filled duration field');
+                }
+                
+                if (medicationsField && document.getElementById('medications')) {
+                    document.getElementById('medications').value = 
+                        Array.isArray(medicationsField.value) ? 
+                        medicationsField.value.join(', ') : 
+                        medicationsField.value;
+                    log('Filled medications field');
+                }
+                
+                if (historyField && document.getElementById('medical-history')) {
+                    document.getElementById('medical-history').value = 
+                        Array.isArray(historyField.value) ? 
+                        historyField.value.join(', ') : 
+                        historyField.value;
+                    log('Filled medical history field');
+                }
+                
+                // Now try the automated form filling
+                log('Now trying automated form filling...');
                 const result = await fillForm('#healthcare-form', encryptedConfig);
                 
                 webAuthnStatus.textContent = 'Form filled successfully';
@@ -327,6 +380,7 @@
             } catch (error) {
                 webAuthnStatus.textContent = 'Form filling error';
                 log(`Form filling error: ${error.message}`);
+                log(`Error stack: ${error.stack}`);
                 console.error(error);
             }
         });
@@ -403,7 +457,30 @@
                 directStatus.textContent = 'Filling form...';
                 log('Filling form with direct key authentication...');
                 
-                // Fill the form using the direct key
+                // Check if the form exists
+                const form = document.querySelector('#healthcare-form');
+                if (!form) {
+                    log('Error: Form not found in DOM');
+                    directStatus.textContent = 'Form not found';
+                    return;
+                }
+                log('Form found in DOM: ' + form.id);
+                
+                // Try direct form filling with our test function
+                log('Testing direct form filling...');
+                const testResult = testFormFilling('#healthcare-form', sampleEhrDecryptedData);
+                log('Direct form filling test result:');
+                log(testResult);
+                
+                if (testResult.success) {
+                    log(`Successfully filled ${testResult.filledFields.length} fields directly`);
+                    if (testResult.failedFields.length > 0) {
+                        log(`Failed to fill ${testResult.failedFields.length} fields`);
+                    }
+                }
+                
+                // Now try the automated form filling
+                log('Now trying automated form filling...');
                 const result = await fillForm('#healthcare-form', encryptedConfig, encryptionKey);
                 
                 directStatus.textContent = 'Form filled successfully';

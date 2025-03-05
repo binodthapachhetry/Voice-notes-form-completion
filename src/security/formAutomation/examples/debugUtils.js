@@ -99,6 +99,117 @@ export function checkDomElements(formSelector) {
 }
 
 /**
+ * Tests form filling with direct DOM manipulation
+ * @param {string} formSelector - Selector for the form
+ * @param {Object} data - Data to fill the form with
+ * @returns {Object} - Results of the test
+ */
+export function testFormFilling(formSelector, data) {
+  const form = document.querySelector(formSelector);
+  if (!form) {
+    return {
+      success: false,
+      error: 'Form not found'
+    };
+  }
+  
+  const results = {
+    success: true,
+    filledFields: [],
+    failedFields: []
+  };
+  
+  try {
+    // Try to fill each field
+    if (data.fields) {
+      for (const field of data.fields) {
+        const fieldId = field.id;
+        const value = field.value;
+        
+        // Try different selectors based on field ID
+        let element = null;
+        
+        // Try direct ID match
+        const directId = fieldId.replace(/([A-Z])/g, '-$1').toLowerCase();
+        element = document.getElementById(directId) || 
+                 document.getElementById(fieldId) || 
+                 document.querySelector(`[name="${fieldId}"]`);
+        
+        // Try common variations
+        if (!element) {
+          // For patientName -> patient-name, patient_name, etc.
+          const kebabCase = fieldId.replace(/([A-Z])/g, '-$1').toLowerCase();
+          const snakeCase = fieldId.replace(/([A-Z])/g, '_$1').toLowerCase();
+          
+          element = document.getElementById(kebabCase) || 
+                   document.getElementById(snakeCase) ||
+                   document.querySelector(`[name="${kebabCase}"]`) ||
+                   document.querySelector(`[name="${snakeCase}"]`);
+        }
+        
+        // If we found an element, fill it
+        if (element) {
+          if (element.tagName === 'TEXTAREA' || 
+              element.tagName === 'INPUT' && 
+              (element.type === 'text' || element.type === 'email' || element.type === 'tel')) {
+            element.value = Array.isArray(value) ? value.join(', ') : value;
+            results.filledFields.push({
+              id: fieldId,
+              element: element.id || element.name,
+              value: element.value
+            });
+          } else if (element.tagName === 'SELECT') {
+            // Handle select elements
+            for (const option of element.options) {
+              if (option.value === value || option.text === value) {
+                element.value = option.value;
+                results.filledFields.push({
+                  id: fieldId,
+                  element: element.id || element.name,
+                  value: element.value
+                });
+                break;
+              }
+            }
+          } else if (element.type === 'checkbox') {
+            element.checked = !!value;
+            results.filledFields.push({
+              id: fieldId,
+              element: element.id || element.name,
+              value: element.checked
+            });
+          } else if (element.type === 'radio') {
+            // For radio buttons, we need to find the right one
+            const radioGroup = document.querySelectorAll(`[name="${element.name}"]`);
+            for (const radio of radioGroup) {
+              if (radio.value === value) {
+                radio.checked = true;
+                results.filledFields.push({
+                  id: fieldId,
+                  element: element.name,
+                  value: radio.value
+                });
+                break;
+              }
+            }
+          }
+        } else {
+          results.failedFields.push({
+            id: fieldId,
+            reason: 'Element not found'
+          });
+        }
+      }
+    }
+  } catch (error) {
+    results.success = false;
+    results.error = error.message;
+  }
+  
+  return results;
+}
+
+/**
  * Gets the label text for a form element
  * @param {Element} element - Form element
  * @returns {string|null} - Label text or null
