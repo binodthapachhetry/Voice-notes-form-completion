@@ -91,12 +91,34 @@ function validateAgainstSchema(data, schema) {
         
         // Array item validation
         if (propSchema.type === 'array' && propSchema.items && Array.isArray(value)) {
-          value.forEach((item, index) => {
-            const itemResult = validateAgainstSchema(item, propSchema.items);
-            if (!itemResult.valid) {
-              errors.push(...itemResult.errors.map(err => `${propName}[${index}].${err}`));
+          // Special case for arrays of primitives (strings, numbers, etc.)
+          if (propSchema.items.type === 'string') {
+            for (let i = 0; i < value.length; i++) {
+              if (typeof value[i] !== 'string') {
+                errors.push(`${propName}[${i}] must be a string`);
+              }
             }
-          });
+          } else if (propSchema.items.type === 'number') {
+            for (let i = 0; i < value.length; i++) {
+              if (typeof value[i] !== 'number') {
+                errors.push(`${propName}[${i}] must be a number`);
+              }
+            }
+          } else if (propSchema.items.type === 'boolean') {
+            for (let i = 0; i < value.length; i++) {
+              if (typeof value[i] !== 'boolean') {
+                errors.push(`${propName}[${i}] must be a boolean`);
+              }
+            }
+          } else {
+            // For arrays of objects, validate each object against the schema
+            value.forEach((item, index) => {
+              const itemResult = validateAgainstSchema(item, propSchema.items);
+              if (!itemResult.valid) {
+                errors.push(...itemResult.errors.map(err => `${propName}[${index}].${err}`));
+              }
+            });
+          }
         }
       }
     }

@@ -258,6 +258,23 @@
                 webAuthnStatus.textContent = 'Authenticating...';
                 log('Authenticating with WebAuthn...');
                 
+                // First, validate the sample data to ensure it's compatible
+                try {
+                    const { validateDecryptedData } = await import('../config/validator.js');
+                    const validationResult = validateDecryptedData(sampleEhrDecryptedData);
+                    if (!validationResult.valid) {
+                        log('Sample data validation failed:');
+                        log(validationResult.errors);
+                        webAuthnStatus.textContent = 'Data validation error';
+                        return;
+                    }
+                    log('Sample data validation passed');
+                } catch (validationError) {
+                    log('Validation error: ' + validationError.message);
+                    webAuthnStatus.textContent = 'Data validation error';
+                    return;
+                }
+                
                 const result = await authenticateWebAuthn();
                 
                 if (result.success) {
@@ -320,6 +337,23 @@
                 directStatus.textContent = 'Generating key...';
                 log('Generating encryption key...');
                 
+                // First, validate the sample data to ensure it's compatible
+                try {
+                    const { validateDecryptedData } = await import('../config/validator.js');
+                    const validationResult = validateDecryptedData(sampleEhrDecryptedData);
+                    if (!validationResult.valid) {
+                        log('Sample data validation failed:');
+                        log(validationResult.errors);
+                        directStatus.textContent = 'Data validation error';
+                        return;
+                    }
+                    log('Sample data validation passed');
+                } catch (validationError) {
+                    log('Validation error: ' + validationError.message);
+                    directStatus.textContent = 'Data validation error';
+                    return;
+                }
+                
                 // Generate a new AES-GCM key
                 const key = await crypto.subtle.generateKey(
                     {
@@ -352,6 +386,7 @@
             } catch (error) {
                 directStatus.textContent = 'Key generation error';
                 log(`Key generation error: ${error.message}`);
+                log(`Error stack: ${error.stack}`);
                 console.error(error);
             }
         });
@@ -377,6 +412,7 @@
             } catch (error) {
                 directStatus.textContent = 'Form filling error';
                 log(`Form filling error: ${error.message}`);
+                log(`Error stack: ${error.stack}`);
                 console.error(error);
             }
         });
