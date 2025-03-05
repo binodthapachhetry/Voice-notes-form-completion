@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Automation Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2563eb;
+            margin-bottom: 20px;
+        }
+        .form-container {
+            background-color: #f8fafc;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .button-group {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        button.secondary {
+            background-color: #6b7280;
+        }
+        button.secondary:hover {
+            background-color: #4b5563;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f3f4f6;
+        }
+        .log {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f3f4f6;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Healthcare Form - Automation Test</h1>
+    
+    <div class="form-container">
+        <form id="healthcare-form">
+            <div class="form-group">
+                <label for="symptoms">Symptoms:</label>
+                <textarea id="symptoms" name="symptoms" placeholder="Enter patient symptoms"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="duration">Duration:</label>
+                <input type="text" id="duration" name="duration" placeholder="How long have symptoms persisted?">
+            </div>
+            
+            <div class="form-group">
+                <label for="medications">Current Medications:</label>
+                <textarea id="medications" name="medications" placeholder="List all current medications"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="medical-history">Medical History:</label>
+                <textarea id="medical-history" name="medical_history" placeholder="Relevant medical history"></textarea>
+            </div>
+            
+            <div class="button-group">
+                <button type="submit">Submit Form</button>
+                <button type="button" id="reset-button" class="secondary">Reset Form</button>
+            </div>
+        </form>
+    </div>
+    
+    <div class="button-group">
+        <button id="fill-form-button">Fill Form Automatically</button>
+        <button id="fill-form-webauthn-button">Fill Form with WebAuthn</button>
+    </div>
+    
+    <div class="status" id="status">Status: Ready</div>
+    
+    <div class="log" id="log"></div>
+    
+    <script type="module">
+        // Import the form automation module
+        import { 
+            initialize, 
+            fillForm, 
+            createEncryptedConfig, 
+            registerWebAuthn,
+            authenticateWebAuthn,
+            cleanup 
+        } from '../index.js';
+        
+        import { sampleEhrDecryptedData } from './sampleEhrFormConfig.js';
+        
+        // DOM Elements
+        const fillFormButton = document.getElementById('fill-form-button');
+        const fillFormWebAuthnButton = document.getElementById('fill-form-webauthn-button');
+        const resetButton = document.getElementById('reset-button');
+        const form = document.getElementById('healthcare-form');
+        const statusElement = document.getElementById('status');
+        const logElement = document.getElementById('log');
+        
+        // Log function
+        function log(message) {
+            const entry = document.createElement('div');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logElement.appendChild(entry);
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+        
+        // Update status
+        function updateStatus(message) {
+            statusElement.textContent = `Status: ${message}`;
+            log(message);
+        }
+        
+        // Reset form
+        resetButton.addEventListener('click', () => {
+            form.reset();
+            updateStatus('Form reset');
+        });
+        
+        // Prevent form submission
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            updateStatus('Form submitted (prevented for demo)');
+        });
+        
+        // Fill form with direct key
+        fillFormButton.addEventListener('click', async () => {
+            try {
+                updateStatus('Initializing form automation...');
+                
+                // Generate a test encryption key
+                const key = await crypto.subtle.generateKey(
+                    {
+                        name: 'AES-GCM',
+                        length: 256
+                    },
+                    true,
+                    ['encrypt', 'decrypt']
+                );
+                
+                // Export the key for use
+                const exportedKey = await crypto.subtle.exportKey('raw', key);
+                
+                log('Generated encryption key');
+                
+                // Create an encrypted configuration
+                updateStatus('Creating encrypted configuration...');
+                const encryptedConfig = await createEncryptedConfig(
+                    sampleEhrDecryptedData,
+                    exportedKey,
+                    {
+                        formId: 'test-form',
+                        formName: 'Test Form',
+                        description: 'Form for testing form automation',
+                        createdBy: 'test-user'
+                    }
+                );
+                
+                log('Created encrypted configuration');
+                
+                // Initialize the form automation module
+                updateStatus('Initializing form automation module...');
+                await initialize(encryptedConfig);
+                
+                log('Initialized form automation module');
+                
+                // Fill the form
+                updateStatus('Filling form...');
+                const result = await fillForm('#healthcare-form', encryptedConfig, exportedKey);
+                
+                log('Form filling result: ' + JSON.stringify(result.result));
+                
+                // Clean up
+                cleanup();
+                
+                updateStatus('Form filled successfully');
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('Error: ' + error.message);
+            }
+        });
+        
+        // Fill form with WebAuthn
+        fillFormWebAuthnButton.addEventListener('click', async () => {
+            try {
+                updateStatus('Initializing with WebAuthn...');
+                
+                // Initialize the module
+                const initResult = await initialize({
+                    metadata: {
+                        version: "1.0.0",
+                        createdAt: new Date().toISOString(),
+                        formId: "webauthn-test-form",
+                        formName: "WebAuthn Test Form"
+                    },
+                    security: {
+                        encryptionMethod: "AES-256-GCM",
+                        iv: "dGhpc2lzYXNhbXBsZWl2Zm9yZGVtbw==",
+                        authTag: "dGhpc2lzYXNhbXBsZWF1dGh0YWc="
+                    },
+                    formData: {
+                        encryptedData: "ZW5jcnlwdGVkZGF0YXdvdWxkYmVoZXJlaW5wcm9kdWN0aW9u"
+                    }
+                }, {
+                    userId: "test-user-" + Date.now()
+                });
+                
+                log('Initialization result: ' + JSON.stringify(initResult));
+                
+                if (!initResult.webAuthnSupported) {
+                    updateStatus('WebAuthn is not supported in this environment');
+                    return;
+                }
+                
+                // Register a new WebAuthn credential
+                updateStatus('Registering WebAuthn credential...');
+                const registerResult = await registerWebAuthn('Test User');
+                
+                log('Registration result: ' + JSON.stringify({
+                    success: registerResult.success
+                }));
+                
+                if (!registerResult.success) {
+                    updateStatus('WebAuthn registration failed');
+                    return;
+                }
+                
+                // Authenticate with WebAuthn
+                updateStatus('Authenticating with WebAuthn...');
+                const authResult = await authenticateWebAuthn();
+                
+                log('Authentication result: ' + JSON.stringify({
+                    success: authResult.success
+                }));
+                
+                if (!authResult.success) {
+                    updateStatus('WebAuthn authentication failed');
+                    return;
+                }
+                
+                // Create an encrypted configuration
+                updateStatus('Creating encrypted configuration...');
+                const encryptedConfig = await createEncryptedConfig(
+                    sampleEhrDecryptedData,
+                    authResult.key,
+                    {
+                        formId: 'webauthn-protected-form',
+                        formName: 'WebAuthn Protected Form',
+                        description: 'Form protected with WebAuthn authentication',
+                        createdBy: 'test-user'
+                    }
+                );
+                
+                log('Created encrypted configuration');
+                
+                // Fill the form
+                updateStatus('Filling form with WebAuthn authentication...');
+                const fillResult = await fillForm('#healthcare-form', encryptedConfig);
+                
+                log('Form filling result: ' + JSON.stringify(fillResult.result));
+                
+                // Clean up
+                cleanup();
+                
+                updateStatus('Form filled successfully with WebAuthn');
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus('Error: ' + error.message);
+            }
+        });
+        
+        // Initialize
+        updateStatus('Page loaded. Ready to test form automation.');
+    </script>
+</body>
+</html>
