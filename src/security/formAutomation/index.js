@@ -14,20 +14,25 @@ import { formConfigSchema, decryptedFormDataSchema } from './config/schema.js';
 // Import Web Worker interface
 import { SecureWorker } from './crypto/workerInterface.js';
 
+// Import WebAuthn manager
+import { WebAuthnManager } from './crypto/webauthn.js';
+
 // This file serves as the main entry point for the form automation module
 // Implementation follows the architecture defined in docs/dataFlowDiagram.md
 
 // Module state
 let secureWorker = null;
+let webAuthnManager = null;
 let isInitialized = false;
 let auditLogger = null;
 
 /**
  * Initialize the form automation module
  * @param {Object} config - Configuration options
+ * @param {Object} [authOptions] - Authentication options
  * @returns {Promise<Object>} - The initialized form automation instance
  */
-export async function initialize(config) {
+export async function initialize(config, authOptions = {}) {
   // Validate the provided configuration
   const validationResult = validateEncryptedConfig(config);
   
@@ -43,14 +48,28 @@ export async function initialize(config) {
     secureWorker = new SecureWorker();
     await secureWorker.initialize();
     
-    // To be implemented: Initialize the WebAuthn authentication
-    // To be implemented: Set up the audit logging system
+    // Initialize WebAuthn
+    webAuthnManager = new WebAuthnManager();
+    const webAuthnSupported = await webAuthnManager.initialize(authOptions.userId || sanitizedConfig.metadata.formId);
+    
+    if (!webAuthnSupported && authOptions.requireWebAuthn) {
+      throw new Error('WebAuthn is required but not supported in this environment');
+    }
+    
+    // Import credential if provided
+    if (authOptions.credential) {
+      webAuthnManager.importCredential(authOptions.credential);
+    }
+    
+    // Set up the audit logging system
+    // To be implemented
     
     isInitialized = true;
     
     return {
       status: 'Initialized',
-      config: sanitizedConfig
+      config: sanitizedConfig,
+      webAuthnSupported
     };
   } catch (error) {
     throw new Error(`Initialization failed: ${error.message}`);
@@ -61,7 +80,7 @@ export async function initialize(config) {
  * Fill a form with the provided encrypted data
  * @param {string} formSelector - Selector to identify the target form
  * @param {Object} encryptedConfig - Encrypted form configuration
- * @param {ArrayBuffer} key - Decryption key (from WebAuthn or key derivation)
+ * @param {ArrayBuffer} [key] - Decryption key (if not using WebAuthn)
  * @param {Object} options - Additional options
  * @returns {Promise<Object>} - Result of the form filling operation
  */
@@ -74,8 +93,22 @@ export async function fillForm(formSelector, encryptedConfig, key, options = {})
     // Start audit logging
     const auditSession = startAuditSession(formSelector, encryptedConfig.metadata);
     
+    // Get decryption key from WebAuthn if not provided
+    let decryptionKey = key;
+    if (!decryptionKey && webAuthnManager) {
+      const authResult = await webAuthnManager.authenticate();
+      if (!authResult.success) {
+        throw new Error('WebAuthn authentication failed');
+      }
+      decryptionKey = authResult.key;
+    }
+    
+    if (!decryptionKey) {
+      throw new Error('No decryption key available');
+    }
+    
     // 1. Decrypt the data in the Web Worker
-    const decryptResult = await secureWorker.decryptFormData(encryptedConfig, key);
+    const decryptResult = await secureWorker.decryptFormData(encryptedConfig, decryptionKey);
     
     // 2. Process the form data
     const processedData = await secureWorker.processFormData(
@@ -226,7 +259,57 @@ export function cleanup() {
     secureWorker = null;
   }
   
+  webAuthnManager = null;
   isInitialized = false;
+}
+
+/**
+ * Registers a new WebAuthn credential
+ * @param {string} username - User's display name
+ * @returns {Promise<Object>} - Registration result with exportable credential
+ */
+export async function registerWebAuthn(username) {
+  if (!isInitialized || !webAuthnManager) {
+    throw new Error('Module not initialized');
+  }
+  
+  const result = await webAuthnManager.register(username);
+  
+  if (result.success) {
+    // Export credential for storage
+    const exportableCredential = webAuthnManager.exportCredential();
+    
+    return {
+      success: true,
+      credential: exportableCredential
+    };
+  }
+  
+  return result;
+}
+
+/**
+ * Authenticates using WebAuthn and returns a key for decryption
+ * @returns {Promise<Object>} - Authentication result with key
+ */
+export async function authenticateWebAuthn() {
+  if (!isInitialized || !webAuthnManager) {
+    throw new Error('Module not initialized');
+  }
+  
+  return webAuthnManager.authenticate();
+}
+
+/**
+ * Checks if a WebAuthn credential exists
+ * @returns {Promise<boolean>} - Whether a credential exists
+ */
+export async function hasWebAuthnCredential() {
+  if (!isInitialized || !webAuthnManager) {
+    return false;
+  }
+  
+  return webAuthnManager.hasCredential();
 }
 
 // Helper functions
