@@ -170,16 +170,16 @@ const decryptedFormDataSchema = {
               selectors: {
                 type: "array",
                 items: {
-                  type: "string",
-                  description: "CSS selectors to identify the field"
-                }
+                  type: "string"
+                },
+                description: "CSS selectors to identify the field"
               },
               labels: {
                 type: "array",
                 items: {
-                  type: "string",
-                  description: "Text labels associated with the field"
-                }
+                  type: "string"
+                },
+                description: "Text labels associated with the field"
               },
               attributes: {
                 type: "object",
