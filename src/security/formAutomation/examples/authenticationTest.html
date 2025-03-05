@@ -279,6 +279,7 @@
                 
                 if (result.success) {
                     webAuthnAuthenticated = true;
+                    webAuthnKey = result.key; // Store the key for reuse
                     webAuthnStatus.textContent = 'Authentication successful';
                     log('WebAuthn authentication successful');
                     
@@ -294,6 +295,13 @@
                         }
                     );
                     
+                    // Store the authentication session in the module
+                    await initialize(encryptedConfig, {
+                        userId: "test-user-" + Date.now(),
+                        authKey: result.key,
+                        storeAuthSession: true
+                    });
+                    
                     log('Created encrypted configuration with WebAuthn key');
                 } else {
                     webAuthnStatus.textContent = 'Authentication failed';
@@ -305,6 +313,9 @@
                 console.error(error);
             }
         });
+        
+        // State for storing authentication key
+        let webAuthnKey = null;
         
         // Fill Form with WebAuthn
         fillFormWebAuthnBtn.addEventListener('click', async () => {
@@ -372,7 +383,10 @@
                 
                 // Now try the automated form filling
                 log('Now trying automated form filling...');
-                const result = await fillForm('#healthcare-form', encryptedConfig);
+                // Pass the encrypted config directly without requiring re-authentication
+                const result = await fillForm('#healthcare-form', encryptedConfig, null, {
+                    skipAuthentication: true
+                });
                 
                 webAuthnStatus.textContent = 'Form filled successfully';
                 log('Form filled with WebAuthn authentication');
