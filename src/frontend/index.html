@@ -1,84 +1,96 @@
-<!DOCTYPE html>                                                                                                                                       
- <html>                                                                                                                                                
- <head>                                                                                                                                                
-   <meta charset="UTF-8">                                                                                                                              
-   <title>FormFillVoiceAI</title>                                                                                                                      
-   <link rel="stylesheet" href="styles.css">                                                                                                           
- </head>                                                                                                                                               
- <body>                                                                                                                                                
-   <div class="container">                                                                                                                             
-     <header>                                                                                                                                          
-       <h1>FormFillVoiceAI</h1>                                                                                                                        
-       <p>Convert voice notes into healthcare form entries</p>                                                                                         
-     </header>                                                                                                                                         
-                                                                                                                                                       
-     <main>                                                                                                                                            
-       <section class="recording-section">                                                                                                             
-         <h2>Voice Recording</h2>                                                                                                                      
-         <div class="recording-controls">                                                                                                              
-           <button id="recordButton" class="primary-button">Start Recording</button>                                                                   
-           <div id="recordingStatus" class="status-indicator">Ready</div>                                                                              
-           <div id="recordingTime" class="recording-time">00:00</div>                                                                                  
-         </div>
-         <div class="visualizer-container">
-           <canvas id="audioVisualizer"></canvas>
-         </div>                                                                                                                                        
-       </section>                                                                                                                                      
-                                                                                                                                                       
-       <section class="transcription-section">                                                                                                         
-         <h2>Transcription</h2>                                                                                                                        
-         <div class="transcription-container">                                                                                                         
-           <textarea id="transcriptionText" placeholder="Transcription will appear here..." readonly></textarea>                                       
-         </div>                                                                                                                                        
-       </section>                                                                                                                                      
-                                                                                                                                                       
-       <section class="form-section">                                                                                                                  
-         <h2>Healthcare Form</h2>                                                                                                                      
-         <div class="form-container">                                                                                                                  
-           <form id="healthcareForm">                                                                                                                  
-             <div class="form-group">                                                                                                                  
-               <label for="patientName">Patient Name:</label>                                                                                          
-               <input type="text" id="patientName" name="patientName">                                                                                 
-             </div>                                                                                                                                    
-                                                                                                                                                       
-             <div class="form-group">                                                                                                                  
-               <label for="patientAge">Age:</label>                                                                                                    
-               <input type="text" id="patientAge" name="patientAge">                                                                                   
-             </div>                                                                                                                                    
-                                                                                                                                                       
-             <div class="form-group">                                                                                                                  
-               <label for="symptoms">Symptoms:</label>                                                                                                 
-               <input type="text" id="symptoms" name="symptoms">                                                                                       
-             </div>                                                                                                                                    
-                                                                                                                                                       
-             <div class="form-group">                                                                                                                  
-               <label for="duration">Duration:</label>                                                                                                 
-               <input type="text" id="duration" name="duration">                                                                                       
-             </div>                                                                                                                                    
-                                                                                                                                                       
-             <div class="form-group">                                                                                                                  
-               <label for="medications">Current Medications:</label>                                                                                   
-               <input type="text" id="medications" name="medications">                                                                                 
-             </div>                                                                                                                                    
-                                                                                                                                                       
-             <div class="form-group">                                                                                                                  
-               <label for="medicalHistory">Medical History:</label>                                                                                    
-               <textarea id="medicalHistory" name="medicalHistory"></textarea>                                                                         
-             </div>                                                                                                                                    
-                                                                                                                                                       
-             <div class="form-actions">                                                                                                                
-               <button type="button" id="saveFormButton" class="primary-button">Save Form</button>                                                     
-             </div>                                                                                                                                    
-           </form>                                                                                                                                     
-         </div>                                                                                                                                        
-       </section>                                                                                                                                      
-     </main>                                                                                                                                           
-                                                                                                                                                       
-     <footer>                                                                                                                                          
-       <p>FormFillVoiceAI v0.1.0 - Development Build</p>                                                                                               
-     </footer>                                                                                                                                         
-   </div>                                                                                                                                              
-                                                                                                                                                       
-   <script src="renderer.js"></script>                                                                                                                 
- </body>                                                                                                                                               
- </html>
+<!DOCTYPE html>                                                                                                                                                                                                   
+ <html>                                                                                                                                                                                                            
+ <head>                                                                                                                                                                                                            
+   <meta charset="UTF-8">                                                                                                                                                                                          
+   <title>FormFillVoiceAI</title>                                                                                                                                                                                  
+   <link rel="stylesheet" href="styles.css">                                                                                                                                                                       
+   <link rel="stylesheet" href="styles/login.css">                                                                                                                                                                 
+ </head>                                                                                                                                                                                                           
+ <body>                                                                                                                                                                                                            
+   <div id="app">                                                                                                                                                                                                  
+     <!-- Login component will be rendered here when not authenticated -->                                                                                                                                         
+     <div id="login-container"></div>                                                                                                                                                                              
+                                                                                                                                                                                                                   
+     <!-- Main application will be shown when authenticated -->                                                                                                                                                    
+     <div id="main-container" style="display: none;">                                                                                                                                                              
+       <div class="container">                                                                                                                                                                                     
+         <header>                                                                                                                                                                                                  
+           <h1>FormFillVoiceAI</h1>                                                                                                                                                                                
+           <p>Convert voice notes into healthcare form entries</p>                                                                                                                                                 
+         </header>                                                                                                                                                                                                 
+                                                                                                                                                                                                                   
+         <main>                                                                                                                                                                                                    
+           <section class="recording-section">                                                                                                                                                                     
+             <h2>Voice Recording</h2>                                                                                                                                                                              
+             <div class="recording-controls">                                                                                                                                                                      
+               <button id="recordButton" class="primary-button">Start Recording</button>                                                                                                                           
+               <div id="recordingStatus" class="status-indicator">Ready</div>                                                                                                                                      
+               <div id="recordingTime" class="recording-time">00:00</div>                                                                                                                                          
+             </div>                                                                                                                                                                                                
+             <div class="visualization-container">                                                                                                                                                                 
+               <div id="waveform"></div>                                                                                                                                                                           
+               <div class="audio-level-meter">                                                                                                                                                                     
+                 <div id="audioLevel" class="audio-level-bar"></div>                                                                                                                                               
+               </div>                                                                                                                                                                                              
+             </div>                                                                                                                                                                                                
+           </section>                                                                                                                                                                                              
+                                                                                                                                                                                                                   
+           <section class="transcription-section">                                                                                                                                                                 
+             <h2>Transcription</h2>                                                                                                                                                                                
+             <div class="transcription-container">                                                                                                                                                                 
+               <textarea id="transcriptionText" placeholder="Transcription will appear here..." readonly></textarea>                                                                                               
+             </div>                                                                                                                                                                                                
+           </section>                                                                                                                                                                                              
+                                                                                                                                                                                                                   
+           <section class="form-section">                                                                                                                                                                          
+             <h2>Healthcare Form</h2>                                                                                                                                                                              
+             <div class="form-container">                                                                                                                                                                          
+               <form id="healthcareForm">                                                                                                                                                                          
+                 <div class="form-group">                                                                                                                                                                          
+                   <label for="patientName">Patient Name:</label>                                                                                                                                                  
+                   <input type="text" id="patientName" name="patientName">                                                                                                                                         
+                 </div>                                                                                                                                                                                            
+                                                                                                                                                                                                                   
+                 <div class="form-group">                                                                                                                                                                          
+                   <label for="patientAge">Age:</label>                                                                                                                                                            
+                   <input type="text" id="patientAge" name="patientAge">                                                                                                                                           
+                 </div>                                                                                                                                                                                            
+                                                                                                                                                                                                                   
+                 <div class="form-group">                                                                                                                                                                          
+                   <label for="symptoms">Symptoms:</label>                                                                                                                                                         
+                   <input type="text" id="symptoms" name="symptoms">                                                                                                                                               
+                 </div>                                                                                                                                                                                            
+                                                                                                                                                                                                                   
+                 <div class="form-group">                                                                                                                                                                          
+                   <label for="duration">Duration:</label>                                                                                                                                                         
+                   <input type="text" id="duration" name="duration">                                                                                                                                               
+                 </div>                                                                                                                                                                                            
+                                                                                                                                                                                                                   
+                 <div class="form-group">                                                                                                                                                                          
+                   <label for="medications">Current Medications:</label>                                                                                                                                           
+                   <input type="text" id="medications" name="medications">                                                                                                                                         
+                 </div>                                                                                                                                                                                            
+                                                                                                                                                                                                                   
+                 <div class="form-group">                                                                                                                                                                          
+                   <label for="medicalHistory">Medical History:</label>                                                                                                                                            
+                   <textarea id="medicalHistory" name="medicalHistory"></textarea>                                                                                                                                 
+                 </div>                                                                                                                                                                                            
+                                                                                                                                                                                                                   
+                 <div class="form-actions">                                                                                                                                                                        
+                   <button type="button" id="saveFormButton" class="primary-button">Save Form</button>                                                                                                             
+                 </div>                                                                                                                                                                                            
+               </form>                                                                                                                                                                                             
+             </div>                                                                                                                                                                                                
+           </section>                                                                                                                                                                                              
+         </main>                                                                                                                                                                                                   
+                                                                                                                                                                                                                   
+         <footer>                                                                                                                                                                                                  
+           <p>FormFillVoiceAI v0.1.0 - Development Build</p>                                                                                                                                                       
+         </footer>                                                                                                                                                                                                 
+       </div>                                                                                                                                                                                                      
+     </div>                                                                                                                                                                                                        
+   </div>                                                                                                                                                                                                          
+                                                                                                                                                                                                                   
+   <script type="module" src="renderer.js"></script>                                                                                                                                                               
+ </body>                                                                                                                                                                                                           
+ </html>    

@@ -61,7 +61,36 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
      // Mock transcription result                                                                                                                      
      transcription: 'Patient John Doe, 45 years old, complains of persistent headache for the past three days. No fever or nausea. History of migraine Currently taking ibuprofen 400mg as needed.'                                                                                                          
    };                                                                                                                                                  
- });                                                                                                                                                   
+ });
+ 
+ // WebAuthn authentication handlers                                                                                                                                                                               
+ ipcMain.handle('register-webauthn', async (event, userId) => {                                                                                                                                                    
+  console.log('Registering WebAuthn credential for user:', userId);                                                                                                                                               
+                                                                                                                                                                                                                  
+  // In a real implementation, this would use the security module                                                                                                                                                 
+  // For now, we'll return a mock successful registration                                                                                                                                                         
+  return {                                                                                                                                                                                                        
+    success: true,                                                                                                                                                                                                
+    credential: {                                                                                                                                                                                                 
+      id: `credential-${Date.now()}`,                                                                                                                                                                             
+      type: 'public-key',                                                                                                                                                                                         
+      rawId: 'mock-raw-id',                                                                                                                                                                                       
+      authenticatorData: 'mock-authenticator-data',                                                                                                                                                               
+      clientDataJSON: 'mock-client-data-json'                                                                                                                                                                     
+    }                                                                                                                                                                                                             
+  };                                                                                                                                                                                                              
+});                                                                                                                                                                                                               
+                                                                                                                                                                                                                  
+ipcMain.handle('authenticate-webauthn', async (event, credential) => {                                                                                                                                            
+  console.log('Authenticating with WebAuthn credential');                                                                                                                                                         
+                                                                                                                                                                                                                  
+  // In a real implementation, this would use the security module                                                                                                                                                 
+  // For now, we'll return a mock successful authentication                                                                                                                                                       
+  return {                                                                                                                                                                                                        
+    success: true,                                                                                                                                                                                                
+    userId: credential ? credential.id : 'unknown-user'                                                                                                                                                           
+  };                                                                                                                                                                                                              
+});  
                                                                                                                                                        
  ipcMain.handle('process-transcription', async (event, transcription) => {                                                                             
    console.log('Processing transcription:', transcription);                                                                                            
