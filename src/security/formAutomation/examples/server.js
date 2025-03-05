@@ -40,11 +40,14 @@ const server = http.createServer((req, res) => {
   // Get the file path
   let filePath = path.join(__dirname, '..', req.url === '/' ? '/examples/testFormPage.html' : req.url);
   
+  console.log('Serving file:', filePath);
+  
   // Check if the file exists
   fs.access(filePath, fs.constants.F_OK, (err) => {
     if (err) {
+      console.error('File not found:', filePath, err);
       res.statusCode = 404;
-      res.end('File not found');
+      res.end(`File not found: ${req.url}`);
       return;
     }
     
@@ -55,6 +58,7 @@ const server = http.createServer((req, res) => {
     // Read and serve the file
     fs.readFile(filePath, (err, data) => {
       if (err) {
+        console.error('Error reading file:', filePath, err);
         res.statusCode = 500;
         res.end('Server error');
         return;

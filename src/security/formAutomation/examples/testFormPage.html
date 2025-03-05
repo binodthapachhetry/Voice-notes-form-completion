@@ -137,6 +137,55 @@
         } from '../index.js';
         
         import { sampleEhrDecryptedData } from './sampleEhrFormConfig.js';
+        import { checkEnvironmentCompatibility, checkModuleImport, checkDomElements } from './debugUtils.js';
+        
+        // Add global error handler
+        window.addEventListener('error', (event) => {
+            console.error('Global error:', event.error);
+            updateStatus(`Error: ${event.error.message}`);
+            log(`Error stack: ${event.error.stack}`);
+        });
+        
+        // Add unhandled promise rejection handler
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection:', event.reason);
+            updateStatus(`Promise error: ${event.reason.message}`);
+            log(`Promise error stack: ${event.reason.stack}`);
+        });
+        
+        // Run environment checks on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Check environment compatibility
+            const compatibility = checkEnvironmentCompatibility();
+            log('Environment compatibility check:');
+            log(JSON.stringify(compatibility, null, 2));
+            
+            // Check if we can import the main module
+            const moduleCheck = await checkModuleImport('../index.js');
+            log('Module import check:');
+            log(JSON.stringify(moduleCheck, null, 2));
+            
+            // Check DOM elements
+            const domCheck = checkDomElements('#healthcare-form');
+            log('DOM elements check:');
+            log(JSON.stringify(domCheck, null, 2));
+            
+            if (!compatibility.webWorkersSupported || !compatibility.canCreateWorker) {
+                updateStatus('Warning: Web Workers not fully supported in this environment');
+            }
+            
+            if (!compatibility.webCryptoSupported || !compatibility.canUseCrypto) {
+                updateStatus('Warning: Web Crypto API not fully supported in this environment');
+            }
+            
+            if (!moduleCheck.success) {
+                updateStatus('Warning: Failed to import main module');
+            }
+            
+            if (!domCheck.formFound) {
+                updateStatus('Warning: Form not found in DOM');
+            }
+        });
         
         // DOM Elements
         const fillFormButton = document.getElementById('fill-form-button');
@@ -177,8 +226,10 @@
         fillFormButton.addEventListener('click', async () => {
             try {
                 updateStatus('Initializing form automation...');
+                log('Starting form automation process');
                 
                 // Generate a test encryption key
+                log('Generating encryption key...');
                 const key = await crypto.subtle.generateKey(
                     {
                         name: 'AES-GCM',
@@ -191,10 +242,12 @@
                 // Export the key for use
                 const exportedKey = await crypto.subtle.exportKey('raw', key);
                 
-                log('Generated encryption key');
+                log('Generated encryption key successfully');
                 
                 // Create an encrypted configuration
                 updateStatus('Creating encrypted configuration...');
+                log('Sample data:', JSON.stringify(sampleEhrDecryptedData).substring(0, 100) + '...');
+                
                 const encryptedConfig = await createEncryptedConfig(
                     sampleEhrDecryptedData,
                     exportedKey,
@@ -206,19 +259,23 @@
                     }
                 );
                 
-                log('Created encrypted configuration');
+                log('Created encrypted configuration successfully');
+                log('Config metadata: ' + JSON.stringify(encryptedConfig.metadata));
                 
                 // Initialize the form automation module
                 updateStatus('Initializing form automation module...');
-                await initialize(encryptedConfig);
+                const initResult = await initialize(encryptedConfig);
                 
-                log('Initialized form automation module');
+                log('Initialized form automation module: ' + JSON.stringify(initResult));
                 
                 // Fill the form
                 updateStatus('Filling form...');
+                log('Target form: #healthcare-form');
+                log('Document contains form: ' + (document.querySelector('#healthcare-form') !== null));
+                
                 const result = await fillForm('#healthcare-form', encryptedConfig, exportedKey);
                 
-                log('Form filling result: ' + JSON.stringify(result.result));
+                log('Form filling result: ' + JSON.stringify(result));
                 
                 // Clean up
                 cleanup();
@@ -227,6 +284,16 @@
             } catch (error) {
                 console.error('Error:', error);
                 updateStatus('Error: ' + error.message);
+                log('Error stack: ' + error.stack);
+                
+                // Try to identify specific issues
+                if (error.message.includes('Worker')) {
+                    log('Worker error detected. Check if Web Workers are supported in this context.');
+                } else if (error.message.includes('crypto')) {
+                    log('Crypto API error detected. Check if Web Crypto API is available.');
+                } else if (error.message.includes('form')) {
+                    log('Form error detected. Check if the form exists and is accessible.');
+                }
             }
         });
         

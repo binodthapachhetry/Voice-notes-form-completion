@@ -22,8 +22,12 @@ export class SecureWorker {
   async initialize() {
     return new Promise((resolve, reject) => {
       try {
-        // Create the worker
-        this.worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
+        // Create the worker with a more robust path resolution
+        // This handles different server configurations and paths
+        const workerUrl = new URL('./worker.js', import.meta.url);
+        console.log('Creating worker with URL:', workerUrl.href);
+        
+        this.worker = new Worker(workerUrl, { type: 'module' });
         
         // Set up message handler
         this.worker.onmessage = (event) => {

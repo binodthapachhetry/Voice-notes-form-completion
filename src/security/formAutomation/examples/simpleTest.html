@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Form Automation Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        form {
+            background-color: #f5f7fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        textarea {
+            min-height: 100px;
+        }
+        button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #log {
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Simple Form Automation Test</h1>
+    
+    <form id="test-form">
+        <div class="form-group">
+            <label for="symptoms">Symptoms:</label>
+            <textarea id="symptoms" name="symptoms"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="duration">Duration:</label>
+            <input type="text" id="duration" name="duration">
+        </div>
+        
+        <div class="form-group">
+            <label for="medications">Current Medications:</label>
+            <textarea id="medications" name="medications"></textarea>
+        </div>
+        
+        <div class="form-group">
+            <label for="medical-history">Medical History:</label>
+            <textarea id="medical-history" name="medical_history"></textarea>
+        </div>
+    </form>
+    
+    <button id="fill-button">Fill Form</button>
+    
+    <h2>Log</h2>
+    <div id="log"></div>
+    
+    <script type="module">
+        // Import the necessary modules
+        import { checkEnvironmentCompatibility } from './debugUtils.js';
+        import { sampleEhrDecryptedData } from './sampleEhrFormConfig.js';
+        
+        const logElement = document.getElementById('log');
+        const fillButton = document.getElementById('fill-button');
+        
+        function log(message) {
+            console.log(message);
+            const entry = document.createElement('div');
+            entry.textContent = typeof message === 'object' 
+                ? JSON.stringify(message, null, 2) 
+                : message;
+            logElement.appendChild(entry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // Check environment compatibility
+        const compatibility = checkEnvironmentCompatibility();
+        log('Environment compatibility:');
+        log(compatibility);
+        
+        // Simple form filling function (no encryption or workers)
+        function fillForm() {
+            try {
+                log('Filling form with sample data...');
+                
+                // Get form fields
+                const symptomsField = document.getElementById('symptoms');
+                const durationField = document.getElementById('duration');
+                const medicationsField = document.getElementById('medications');
+                const medicalHistoryField = document.getElementById('medical-history');
+                
+                // Find the data in the sample
+                const symptomsData = sampleEhrDecryptedData.fields.find(f => f.id === 'patientSymptoms');
+                const durationData = sampleEhrDecryptedData.fields.find(f => f.id === 'symptomDuration');
+                const medicationsData = sampleEhrDecryptedData.fields.find(f => f.id === 'currentMedications');
+                const historyData = sampleEhrDecryptedData.fields.find(f => f.id === 'medicalHistory');
+                
+                // Fill the fields
+                if (symptomsField && symptomsData) {
+                    symptomsField.value = symptomsData.value;
+                    log(`Filled symptoms: ${symptomsData.value}`);
+                }
+                
+                if (durationField && durationData) {
+                    durationField.value = durationData.value;
+                    log(`Filled duration: ${durationData.value}`);
+                }
+                
+                if (medicationsField && medicationsData) {
+                    medicationsField.value = Array.isArray(medicationsData.value) 
+                        ? medicationsData.value.join(', ') 
+                        : medicationsData.value;
+                    log(`Filled medications: ${medicationsField.value}`);
+                }
+                
+                if (medicalHistoryField && historyData) {
+                    medicalHistoryField.value = Array.isArray(historyData.value) 
+                        ? historyData.value.join(', ') 
+                        : historyData.value;
+                    log(`Filled medical history: ${medicalHistoryField.value}`);
+                }
+                
+                log('Form filled successfully!');
+            } catch (error) {
+                log(`Error filling form: ${error.message}`);
+                console.error(error);
+            }
+        }
+        
+        // Add click handler
+        fillButton.addEventListener('click', fillForm);
+        
+        log('Page loaded. Click "Fill Form" to test.');
+    </script>
+</body>
+</html>
