@@ -1,0 +1,17 @@
+{
+  "name": "formfillvoiceai",
+  "version": "1.0.0",
+  "description": "Voice-powered form filling application for healthcare",
+  "main": "backend/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "install-deps": "npm install && cd backend && npm install"
+  },
+  "dependencies": {
+    "electron": "^25.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.4.0"
+  }
+}

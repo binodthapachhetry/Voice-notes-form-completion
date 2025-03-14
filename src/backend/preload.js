@@ -15,7 +15,12 @@ contextBridge.exposeInMainWorld('api', {
   // Form functions                                                                                                                                                                                               
   saveForm: (formData) => ipcRenderer.invoke('save-form', formData),                                                                                                                                              
                                                                                                                                                                                                                   
-  // WebAuthn authentication functions                                                                                                                                                                            
-  registerWebAuthn: (userId) => ipcRenderer.invoke('register-webauthn', userId),                                                                                                                                  
-  authenticateWebAuthn: (credential) => ipcRenderer.invoke('authenticate-webauthn', credential)                                                                                                                   
+  // WebAuthn authentication functions - enhanced API                                                                                                                                                            
+  // Registration
+  registerWebAuthn: (userId) => ipcRenderer.invoke('register-webauthn', userId),
+  verifyRegistration: (data) => ipcRenderer.invoke('verify-registration', data),
+  
+  // Authentication
+  authenticateWebAuthn: (data) => ipcRenderer.invoke('authenticate-webauthn', data),
+  verifyAuthentication: (data) => ipcRenderer.invoke('verify-authentication', data)
 });
