@@ -20,15 +20,23 @@ class Login {
     async initialize(container) {                                                                                                                                                                                   
       this.container = container;                                                                                                                                                                                   
                                                                                                                                                                                                                     
-      // Check if we have a stored credential                                                                                                                                                                       
-      const storedCredential = localStorage.getItem('webauthn-credential');                                                                                                                                         
-      if (storedCredential) {                                                                                                                                                                                       
-        this.credential = JSON.parse(storedCredential);
-        // Also retrieve the user ID if available
-        const storedUserId = localStorage.getItem('webauthn-userid');
-        if (storedUserId) {
-          this.userId = storedUserId;
+      try {
+        // Check if we have a stored credential                                                                                                                                                                       
+        const storedCredential = localStorage.getItem('webauthn-credential');                                                                                                                                         
+        if (storedCredential) {                                                                                                                                                                                       
+          this.credential = JSON.parse(storedCredential);
+          // Also retrieve the user ID if available
+          const storedUserId = localStorage.getItem('webauthn-userid');
+          if (storedUserId) {
+            this.userId = storedUserId;
+          }
         }
+      } catch (error) {
+        console.error('Error loading stored credentials:', error);
+        // Clear potentially corrupted storage
+        localStorage.removeItem('webauthn-credential');
+        localStorage.removeItem('webauthn-userid');
+        this.credential = null;
       }
       
       // Check if we have an active session
@@ -83,6 +91,10 @@ class Login {
     async register() {                                                                                                                                                                                              
       const statusElement = this.container.querySelector('#login-status');                                                                                                                                          
       statusElement.textContent = 'Registering...';                                                                                                                                                                 
+      
+      // Generate a new user ID for registration
+      this.userId = `user-${Date.now()}`;
+      console.log('Registering with new user ID:', this.userId);
                                                                                                                                                                                                                     
       try {
         // Step 1: Get registration options from the server
@@ -280,9 +292,10 @@ class Login {
             this.credential = null;
             
             statusElement.textContent = 'Please register your device first';
+            console.log('Cleared credentials due to User not found error');
             
             // Update the UI to show registration instead of login
-            setTimeout(() => this.render(), 1000);
+            this.render();
           } else {
             statusElement.textContent = `Authentication failed: ${verificationResult.error}`;
           }

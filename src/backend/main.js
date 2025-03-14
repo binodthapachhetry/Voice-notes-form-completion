@@ -289,7 +289,10 @@ ipcMain.handle('authenticate-webauthn', async (event, { userId, credentialId }) 
     // Get user
     const user = getUserFromStore(userId);
     if (!user) {
-      throw new Error('User not found');
+      return {
+        success: false,
+        error: 'User not found'
+      };
     }
     
     // Generate challenge
@@ -344,7 +347,10 @@ ipcMain.handle('verify-authentication', async (event, { userId, assertionRespons
     // Get the challenge
     const expectedChallenge = getChallengeFromStore(userId);
     if (!expectedChallenge) {
-      throw new Error('Challenge expired or not found');
+      return {
+        success: false,
+        error: 'Challenge expired or not found'
+      };
     }
     
     // Get credential ID from the response
@@ -353,7 +359,10 @@ ipcMain.handle('verify-authentication', async (event, { userId, assertionRespons
     // Get the credential
     const credential = getCredentialFromStore(credentialIdBase64);
     if (!credential) {
-      throw new Error('Credential not found');
+      return {
+        success: false,
+        error: 'Credential not found'
+      };
     }
     
     // Verify the assertion
