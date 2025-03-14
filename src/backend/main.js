@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');                                                                                  
 const path = require('path');
 const crypto = require('crypto');
+const express = require('express');
+const http = require('http');
                                                                                                                                                        
 // We'll initialize the store later using dynamic import                                                                                              
 let store;                                                                                                                                            
@@ -58,7 +60,7 @@ let webAuthnServer;
      }                                                                                                                                                 
    });                                                                                                                                                 
                                                                                                                                                        
-   mainWindow.loadFile(path.join(__dirname, '../frontend/index.html'));                                                                                
+   mainWindow.loadURL(`http://localhost:${port}`);                                                                                
                                                                                                                                                        
    // Open DevTools in development                                                                                                                     
    if (process.env.NODE_ENV === 'development') {                                                                                                       
@@ -98,10 +100,23 @@ let webAuthnServer;
    };                                                                                                                                                  
  });
  
+// Create Express app and HTTP server
+const expressApp = express();
+const port = process.env.PORT || 3000;
+const server = http.createServer(expressApp);
+
+// Serve static files from the frontend directory
+expressApp.use(express.static(path.join(__dirname, '../frontend')));
+
+// Start the server
+server.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
+});
+
 // WebAuthn configuration
 const rpName = 'FormFillVoiceAI Healthcare';
 const rpID = 'localhost'; // In production, use your actual domain
-const origin = `http://${rpID}:${process.env.PORT || 3000}`;
+const origin = `http://localhost:${port}`;
 const expectedOrigin = origin;
 
 // Helper functions for WebAuthn

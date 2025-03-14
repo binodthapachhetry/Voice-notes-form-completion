@@ -107,6 +107,8 @@ class Login {
         // Step 2: Create credentials using the browser's WebAuthn API
         const options = optionsResult.options;
         
+        console.log('Registration options received:', JSON.stringify(options, null, 2));
+        
         // Convert base64url challenge to ArrayBuffer
         options.challenge = this._base64UrlToArrayBuffer(options.challenge);
         
@@ -227,6 +229,8 @@ class Login {
         
         // Step 2: Get assertion using the browser's WebAuthn API
         const options = optionsResult.options;
+        
+        console.log('Authentication options received:', JSON.stringify(options, null, 2));
         
         // Convert base64url challenge to ArrayBuffer
         options.challenge = this._base64UrlToArrayBuffer(options.challenge);
