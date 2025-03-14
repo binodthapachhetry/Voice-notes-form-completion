@@ -272,7 +272,20 @@ class Login {
           });
           this.container.dispatchEvent(event);
         } else {
-          statusElement.textContent = `Authentication failed: ${verificationResult.error}`;
+          // Check if this is a "User not found" error
+          if (verificationResult.error && verificationResult.error.includes("User not found")) {
+            // Clear stored credentials
+            localStorage.removeItem('webauthn-credential');
+            localStorage.removeItem('webauthn-userid');
+            this.credential = null;
+            
+            statusElement.textContent = 'Please register your device first';
+            
+            // Update the UI to show registration instead of login
+            setTimeout(() => this.render(), 1000);
+          } else {
+            statusElement.textContent = `Authentication failed: ${verificationResult.error}`;
+          }
         }
       } catch (error) {
         console.error('Authentication error:', error);
