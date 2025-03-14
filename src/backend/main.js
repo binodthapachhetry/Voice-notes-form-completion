@@ -204,11 +204,11 @@ ipcMain.handle('register-webauthn', async (event, userId) => {
       userName: user.name,
       userDisplayName: user.displayName,
       challenge,
-      attestationType: 'direct', // For healthcare, we want attestation
+      attestationType: 'none', // Changed from 'direct' to 'none' for better compatibility
       authenticatorSelection: {
-        authenticatorAttachment: 'platform', // Allow both platform and cross-platform authenticators
-        userVerification: 'required', // Require biometric/PIN for healthcare
-        requireResidentKey: true // For better UX, use resident keys
+        // Removed authenticatorAttachment to allow any type of authenticator
+        userVerification: 'preferred', // Changed from 'required' to 'preferred'
+        requireResidentKey: false // Changed from true to false for better compatibility
       }
     });
     
@@ -335,7 +335,7 @@ ipcMain.handle('authenticate-webauthn', async (event, { userId, credentialId }) 
       rpID,
       challenge,
       allowCredentials,
-      userVerification: 'required' // Require biometric/PIN for healthcare
+      userVerification: 'preferred' // Changed from 'required' to 'preferred' for better compatibility
     });
     
     return {

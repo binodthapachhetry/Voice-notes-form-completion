@@ -92,6 +92,13 @@ class Login {
       const statusElement = this.container.querySelector('#login-status');                                                                                                                                          
       statusElement.textContent = 'Registering...';                                                                                                                                                                 
       
+      // Check if WebAuthn is supported
+      if (!window.PublicKeyCredential) {
+        statusElement.textContent = 'WebAuthn is not supported in this browser';
+        console.error('WebAuthn not supported');
+        return;
+      }
+      
       // Generate a new user ID for registration
       this.userId = `user-${Date.now()}`;
       console.log('Registering with new user ID:', this.userId);
@@ -127,10 +134,26 @@ class Login {
           });
         }
         
-        // Create the credential
-        const credential = await navigator.credentials.create({
-          publicKey: options
+        // Make the options more compatible with different devices
+        if (options.authenticatorSelection) {
+          options.authenticatorSelection = {
+            userVerification: "preferred", // Change from "required" to "preferred"
+            requireResidentKey: false      // Change from true to false
+          };
+        }
+
+        // Add a timeout handler
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('WebAuthn operation timed out')), 60000);
         });
+
+        // Create the credential with a timeout
+        const credential = await Promise.race([
+          navigator.credentials.create({
+            publicKey: options
+          }),
+          timeoutPromise
+        ]);
         
         // Step 3: Prepare the credential response for the server
         const attestationResponse = {
@@ -169,7 +192,17 @@ class Login {
         }
       } catch (error) {
         console.error('Registration error:', error);
-        statusElement.textContent = `Error: ${error.message}`;
+        
+        if (error.name === 'NotAllowedError') {
+          statusElement.textContent = 'Registration was not allowed. Please ensure your device has a working authenticator.';
+          console.error('WebAuthn registration not allowed:', error);
+        } else if (error.name === 'NotSupportedError') {
+          statusElement.textContent = 'Your authenticator doesn\'t support the requested options.';
+          console.error('WebAuthn not supported:', error);
+        } else {
+          statusElement.textContent = `Error: ${error.message}`;
+          console.error('Registration error:', error);
+        }
       }
     }
     
@@ -215,6 +248,13 @@ class Login {
     async authenticate() {                                                                                                                                                                                          
       const statusElement = this.container.querySelector('#login-status');                                                                                                                                          
       statusElement.textContent = 'Authenticating...';                                                                                                                                                              
+      
+      // Check if WebAuthn is supported
+      if (!window.PublicKeyCredential) {
+        statusElement.textContent = 'WebAuthn is not supported in this browser';
+        console.error('WebAuthn not supported');
+        return;
+      }
                                                                                                                                                                                                                     
       try {
         // Step 1: Get authentication options from the server
@@ -245,10 +285,18 @@ class Login {
           });
         }
         
-        // Get the assertion
-        const assertion = await navigator.credentials.get({
-          publicKey: options
+        // Add a timeout handler
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('WebAuthn operation timed out')), 60000);
         });
+
+        // Get the assertion with a timeout
+        const assertion = await Promise.race([
+          navigator.credentials.get({
+            publicKey: options
+          }),
+          timeoutPromise
+        ]);
         
         // Step 3: Prepare the assertion response for the server
         const assertionResponse = {
@@ -306,7 +354,17 @@ class Login {
         }
       } catch (error) {
         console.error('Authentication error:', error);
-        statusElement.textContent = `Error: ${error.message}`;
+        
+        if (error.name === 'NotAllowedError') {
+          statusElement.textContent = 'Authentication was not allowed. Please ensure your device has a working authenticator.';
+          console.error('WebAuthn authentication not allowed:', error);
+        } else if (error.name === 'NotSupportedError') {
+          statusElement.textContent = 'Your authenticator doesn\'t support the requested options.';
+          console.error('WebAuthn not supported:', error);
+        } else {
+          statusElement.textContent = `Error: ${error.message}`;
+          console.error('Authentication error:', error);
+        }
       }
     }
                                                                                                                                                                                                                     
