@@ -46,6 +46,8 @@
     ]
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^9.0.1",
+    "@simplewebauthn/server": "^9.0.1",
     "electron-store": "^10.0.1"
   },
   "build": {
