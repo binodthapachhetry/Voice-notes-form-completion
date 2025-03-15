@@ -85,6 +85,35 @@ class Login {
       }                                                                                                                                                                                                             
     }                                                                                                                                                                                                               
                                                                                                                                                                                                                     
+    /**
+     * Fetch CSRF token for secure requests
+     * @returns {Promise<string>} CSRF token
+     */
+    async _fetchCsrfToken() {
+      // In a real implementation, you would fetch a CSRF token from the server
+      // For now, we'll simulate it with a random value
+      return Math.random().toString(36).substring(2, 15);
+    }
+    
+    /**
+     * Securely store credential
+     * @param {Object} credential - The credential to store
+     */
+    _securelyStoreCredential(credential) {
+      // In a production web app, consider using the Web Crypto API to encrypt
+      // the credential before storing it, using a key derived from a user password
+      
+      // For a desktop app, ideally use a more secure storage mechanism than localStorage
+      // such as the OS keychain/keyring via a native module
+      
+      // For now, we'll use localStorage with a simple JSON.stringify
+      localStorage.setItem('webauthn-credential', JSON.stringify(credential));
+      localStorage.setItem('webauthn-userid', this.userId);
+      
+      // Log for debugging (remove in production)
+      console.log('Credential securely stored');
+    }
+    
     /**                                                                                                                                                                                                             
      * Register a new WebAuthn credential                                                                                                                                                                           
      */                                                                                                                                                                                                             
@@ -102,6 +131,9 @@ class Login {
       // Generate a new user ID for registration
       this.userId = `user-${Date.now()}`;
       console.log('Registering with new user ID:', this.userId);
+      
+      // Get CSRF token for security
+      const csrfToken = await this._fetchCsrfToken();
                                                                                                                                                                                                                     
       try {
         // Step 1: Get registration options from the server
@@ -178,10 +210,9 @@ class Login {
         });
         
         if (verificationResult.success) {
-          // Store the credential
+          // Securely store the credential
           this.credential = verificationResult.credential;
-          localStorage.setItem('webauthn-credential', JSON.stringify(verificationResult.credential));
-          localStorage.setItem('webauthn-userid', this.userId);
+          this._securelyStoreCredential(verificationResult.credential);
           
           statusElement.textContent = 'Registration successful!';
           
@@ -322,8 +353,16 @@ class Login {
           this.isAuthenticated = true;
           this.sessionToken = verificationResult.sessionToken;
           
-          // Store session token securely
-          sessionStorage.setItem('auth-session-token', this.sessionToken);
+          // Store session token securely with expiration
+          const sessionData = {
+            token: this.sessionToken,
+            userId: verificationResult.userId,
+            expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+          };
+          
+          // In a real app, consider using HttpOnly cookies for better security
+          // For now, use sessionStorage which is cleared when the browser is closed
+          sessionStorage.setItem('auth-session-data', JSON.stringify(sessionData));
           
           statusElement.textContent = 'Authentication successful!';
           

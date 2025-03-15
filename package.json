@@ -5,8 +5,11 @@
   "main": "src/backend/main.js",
   "scripts": {
     "start": "electron .",
+    "start:prod": "NODE_ENV=production electron .",
     "build": "electron-builder",
-    "test": "echo \"Error: no test specified\" && exit 0"
+    "test": "jest",
+    "security-scan": "npm audit && snyk test",
+    "dependency-check": "license-checker --production --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause'"
   },
   "repository": {
     "type": "git",
@@ -62,13 +65,21 @@
       "package.json"
     ],
     "mac": {
-      "category": "public.app-category.medical"
+      "category": "public.app-category.medical",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.plist",
+      "entitlementsInherit": "entitlements.plist"
     },
     "win": {
-      "target": "nsis"
+      "certificateFile": "./cert.pfx",
+      "certificatePassword": "process.env.CERTIFICATE_PASSWORD",
+      "signingHashAlgorithms": ["sha256"]
     },
     "linux": {
-      "target": "AppImage"
-    }
+      "target": ["AppImage", "deb", "rpm"],
+      "category": "Medical"
+    },
+    "afterSign": "scripts/notarize.js"
   }
 }

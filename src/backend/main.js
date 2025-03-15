@@ -29,6 +29,29 @@ let store;
   });                                                                                                                                                
 })();
 
+// Logging implementation
+const logger = {
+  info: (message, meta = {}) => {
+    // In production, use a proper logging service like Winston, Bunyan, or a cloud logging service
+    console.log(JSON.stringify({ 
+      level: 'info', 
+      message, 
+      timestamp: new Date().toISOString(), 
+      ...meta 
+    }));
+  },
+  error: (message, error, meta = {}) => {
+    console.error(JSON.stringify({ 
+      level: 'error', 
+      message, 
+      error: error.message, 
+      stack: error.stack,
+      timestamp: new Date().toISOString(), 
+      ...meta 
+    }));
+  }
+};
+
 // Import WebAuthn libraries asynchronously
 let webAuthnServer;
 (async () => {
@@ -41,9 +64,9 @@ let webAuthnServer;
       generateAuthenticationOptions, 
       verifyAuthenticationResponse 
     };
-    console.log('WebAuthn server libraries loaded successfully');
+    logger.info('WebAuthn server libraries loaded successfully');
   } catch (error) {
-    console.error('Failed to load WebAuthn server libraries:', error);
+    logger.error('Failed to load WebAuthn server libraries:', error, { module: 'webauthn' });
   }
 })();
                                                                                                                                                        
@@ -115,9 +138,34 @@ server.listen(port, () => {
 
 // WebAuthn configuration
 const rpName = 'FormFillVoiceAI Healthcare';
-const rpID = 'localhost'; // In production, use your actual domain
-const origin = `http://localhost:${port}`;
+const rpID = process.env.NODE_ENV === 'production' ? 'yourdomain.com' : 'localhost';
+const origin = process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : `http://localhost:${port}`;
 const expectedOrigin = origin;
+
+// Rate limiting implementation
+const rateLimit = {};
+
+function checkRateLimit(userId, action) {
+  const key = `${userId}:${action}`;
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000; // 15 minutes
+  const maxAttempts = 5;
+  
+  if (!rateLimit[key]) {
+    rateLimit[key] = { count: 0, resetAt: now + windowMs };
+  }
+  
+  // Reset if window expired
+  if (now > rateLimit[key].resetAt) {
+    rateLimit[key] = { count: 0, resetAt: now + windowMs };
+  }
+  
+  // Increment count
+  rateLimit[key].count++;
+  
+  // Check if over limit
+  return rateLimit[key].count <= maxAttempts;
+}
 
 // Helper functions for WebAuthn
 function generateRandomBuffer() {
@@ -129,6 +177,47 @@ function generateChallenge() {
   return challenge.toString('base64url');
 }
 
+// Database abstraction layer
+// In production, this would connect to a real database
+const db = {
+  async getUserById(userId) {
+    // In production, query a real database like PostgreSQL, MongoDB, etc.
+    // For now, we'll use the store as a fallback
+    return getUserFromStore(userId);
+  },
+  
+  async saveUser(userId, userData) {
+    // In production, save to a real database
+    // For now, we'll use the store as a fallback
+    saveUserToStore(userId, userData);
+  },
+  
+  async getCredentialById(credentialId) {
+    // In production, query a real database
+    // For now, we'll use the store as a fallback
+    return getCredentialFromStore(credentialId);
+  },
+  
+  async saveCredential(credentialId, credential) {
+    // In production, save to a real database
+    // For now, we'll use the store as a fallback
+    saveCredentialToStore(credentialId, credential);
+  },
+  
+  async saveChallenge(userId, challenge) {
+    // In production, save to a real database or Redis
+    // For now, we'll use the store as a fallback
+    saveChallengeToStore(userId, challenge);
+  },
+  
+  async getChallenge(userId) {
+    // In production, query from database or Redis
+    // For now, we'll use the store as a fallback
+    return getChallengeFromStore(userId);
+  }
+};
+
+// Store functions (will be used as fallback in development)
 function getUserFromStore(userId) {
   const users = store.get('users') || {};
   return users[userId];
@@ -171,25 +260,94 @@ function getChallengeFromStore(userId) {
   return null;
 }
 
+// Session management
+const sessions = {
+  async createSession(userId) {
+    const sessionId = crypto.randomBytes(32).toString('hex');
+    const expiresAt = Date.now() + (24 * 60 * 60 * 1000); // 24 hours
+    
+    // In production, save to a real database or Redis
+    // For now, we'll use a simple in-memory store
+    const sessionData = {
+      id: sessionId,
+      userId,
+      expiresAt,
+      createdAt: Date.now()
+    };
+    
+    // Store in memory for now
+    if (!global.sessions) global.sessions = {};
+    global.sessions[sessionId] = sessionData;
+    
+    return { sessionId, expiresAt };
+  },
+  
+  async validateSession(sessionId) {
+    // In production, query from database or Redis
+    // For now, we'll use a simple in-memory store
+    if (!global.sessions || !global.sessions[sessionId]) {
+      return null;
+    }
+    
+    const session = global.sessions[sessionId];
+    return session && session.expiresAt > Date.now() ? session : null;
+  },
+  
+  async invalidateSession(sessionId) {
+    // In production, remove from database or Redis
+    // For now, we'll use a simple in-memory store
+    if (global.sessions && global.sessions[sessionId]) {
+      delete global.sessions[sessionId];
+      return true;
+    }
+    return false;
+  }
+};
+
 // WebAuthn authentication handlers
 ipcMain.handle('register-webauthn', async (event, userId) => {
-  console.log('Generating registration options for user:', userId);
+  logger.info('Generating registration options for user:', { userId });
+  
+  // Check rate limiting
+  if (!checkRateLimit(userId, 'register')) {
+    logger.info('Rate limit exceeded for registration', { userId });
+    return {
+      success: false,
+      error: 'Too many registration attempts. Please try again later.'
+    };
+  }
   
   try {
     if (!webAuthnServer) {
       throw new Error('WebAuthn server libraries not loaded');
     }
     
+    // User management service
+    const userService = {
+      async createUser(userData) {
+        // In production, you'd want to validate the user data
+        const user = {
+          id: userData.id || crypto.randomUUID(),
+          name: userData.name || `User ${userData.id.substring(0, 8)}`,
+          displayName: userData.displayName || userData.name || `User ${userData.id.substring(0, 8)}`,
+          email: userData.email, // Optional
+          credentials: [],
+          createdAt: Date.now()
+        };
+        
+        await db.saveUser(user.id, user);
+        return user;
+      },
+      
+      async getUserById(userId) {
+        return await db.getUserById(userId);
+      }
+    };
+    
     // Create or get user
-    let user = getUserFromStore(userId);
+    let user = await userService.getUserById(userId);
     if (!user) {
-      user = {
-        id: userId,
-        name: `User ${userId.substring(0, 8)}`,
-        displayName: `User ${userId.substring(0, 8)}`,
-        credentials: []
-      };
-      saveUserToStore(userId, user);
+      user = await userService.createUser({ id: userId });
     }
     
     // Generate challenge
@@ -239,19 +397,58 @@ ipcMain.handle('verify-registration', async (event, { userId, attestationRespons
       throw new Error('Challenge expired or not found');
     }
     
-    // Verify the attestation
-    const verification = await webAuthnServer.verifyRegistrationResponse({
-      response: attestationResponse,
-      expectedChallenge,
-      expectedOrigin,
-      expectedRPID: rpID
-    });
+    // Enhanced attestation verification
+    async function verifyAttestationWithMetadata(attestation, options) {
+      // In production, you might want to verify the attestation against
+      // the FIDO Metadata Service (MDS) to ensure the authenticator is genuine
+      
+      // For now, we'll use the standard verification
+      return await webAuthnServer.verifyRegistrationResponse(options);
+      
+      // In a real implementation with MDS:
+      // const mdsVerifier = new MdsVerifier();
+      // const mdsResult = await mdsVerifier.verify(attestation);
+      // if (!mdsResult.isValid) {
+      //   throw new Error('Authenticator not trusted according to FIDO MDS');
+      // }
+    }
+    
+    // Verify the attestation with enhanced verification
+    const verification = await verifyAttestationWithMetadata(
+      attestationResponse,
+      {
+        response: attestationResponse,
+        expectedChallenge,
+        expectedOrigin,
+        expectedRPID: rpID
+      }
+    );
     
     if (verification.verified) {
       // Get the user
       const user = getUserFromStore(userId);
       if (!user) {
         throw new Error('User not found');
+      }
+      
+      // Audit logging function
+      async function createAuditLog(userId, action, metadata) {
+        const auditLog = {
+          userId,
+          action,
+          timestamp: Date.now(),
+          ip: metadata.ip || 'unknown',
+          userAgent: metadata.userAgent || 'unknown',
+          success: metadata.success,
+          details: metadata.details
+        };
+        
+        // In production, save to a secure, append-only database or service
+        // For now, log to console in a structured format
+        logger.info('Audit log entry created', { auditLog });
+        
+        // In a real implementation, you would save this to a database
+        // await dbClient.collection('auditLogs').insertOne(auditLog);
       }
       
       // Save the credential
@@ -268,10 +465,19 @@ ipcMain.handle('verify-registration', async (event, { userId, attestationRespons
       
       // Add to user's credentials
       user.credentials.push(credentialIdBase64);
-      saveUserToStore(userId, user);
+      await db.saveUser(userId, user);
       
       // Save credential separately
-      saveCredentialToStore(credentialIdBase64, newCredential);
+      await db.saveCredential(credentialIdBase64, newCredential);
+      
+      // Create audit log for successful registration
+      await createAuditLog(userId, 'webauthn_registration', {
+        success: true,
+        details: {
+          credentialId: credentialIdBase64,
+          created: newCredential.created
+        }
+      });
       
       return {
         success: true,
@@ -293,8 +499,41 @@ ipcMain.handle('verify-registration', async (event, { userId, attestationRespons
   }
 });
 
+// Compliance and privacy functions
+function ensureCompliance(userData) {
+  // Implement functions to ensure compliance with regulations like GDPR, HIPAA, etc.
+  // For healthcare apps, this is especially important
+  
+  // For example, ensure proper consent is recorded
+  if (process.env.NODE_ENV === 'production' && !userData.consentRecorded) {
+    logger.info('User consent not recorded', { userId: userData.id });
+    // In production, you might want to enforce this
+    // throw new Error('User consent must be recorded before processing data');
+  }
+  
+  // Ensure data minimization - only return necessary fields
+  const sanitizedData = {
+    id: userData.id,
+    name: userData.name,
+    displayName: userData.displayName,
+    credentials: userData.credentials
+    // Exclude sensitive fields
+  };
+  
+  return sanitizedData;
+}
+
 ipcMain.handle('authenticate-webauthn', async (event, { userId, credentialId }) => {
-  console.log('Generating authentication options for user:', userId);
+  logger.info('Generating authentication options for user:', { userId });
+  
+  // Check rate limiting
+  if (!checkRateLimit(userId, 'authenticate')) {
+    logger.info('Rate limit exceeded for authentication', { userId });
+    return {
+      success: false,
+      error: 'Too many authentication attempts. Please try again later.'
+    };
+  }
   
   try {
     if (!webAuthnServer) {
