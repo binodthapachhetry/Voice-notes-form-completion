@@ -7,11 +7,24 @@ const http = require('http');
 // We'll initialize the store later using dynamic import                                                                                              
 let store;                                                                                                                                            
                                                                                                                                                        
+// Function to securely get encryption key
+async function getEncryptionKey() {
+  if (process.env.NODE_ENV === 'production') {
+    // In production, use a secure key management service
+    // This could be AWS KMS, Azure Key Vault, HashiCorp Vault, etc.
+    // return await fetchKeyFromSecureStorage();
+    return process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+  } else {
+    // For development only
+    return 'healthcare-app-secure-encryption-key';
+  }
+}
+
 // Initialize store asynchronously                                                                                                                    
 (async () => {                                                                                                                                        
   const { default: Store } = await import('electron-store');                                                                                          
   store = new Store({
-    encryptionKey: 'healthcare-app-secure-encryption-key', // In production, use a secure key management solution
+    encryptionKey: await getEncryptionKey(),
     schema: {
       users: {
         type: 'object',
