@@ -39,6 +39,17 @@ let lastRecordedAudioBlob = null;
 // Initialize the application
 document.addEventListener('DOMContentLoaded', initializeApp);
 
+
+window.addEventListener('error', (event) => {                                                                                                          
+  console.error('Global error:', event.error);                                                                                                         
+});                                                                                                                                                    
+                                                                                                                                                       
+// At the top of initializeApp                                                                                                                         
+console.log('DOM loaded, containers:', {                                                                                                               
+  loginContainer: loginContainer?.id,                                                                                                                  
+  mainContainer: mainContainer?.id                                                                                                                     
+}); 
+
 async function initializeApp() {
   console.log('Initializing application...');
   
