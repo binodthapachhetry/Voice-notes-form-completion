@@ -1,5 +1,31 @@
 // Import transformers.js in worker context
-import { pipeline, env } from '@xenova/transformers';
+try {
+  importScripts('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js');
+  const { pipeline, env } = self.Transformers;
+  
+  // Log successful import
+  console.log('Transformers.js loaded successfully via importScripts');
+  
+  // Continue with the rest of the worker code...
+  initWorker(pipeline, env);
+} catch (e) {
+  console.error('Failed to load Transformers.js via importScripts:', e);
+  
+  // Fallback to dynamic import
+  import('@xenova/transformers').then(({ pipeline, env }) => {
+    console.log('Transformers.js loaded successfully via dynamic import');
+    initWorker(pipeline, env);
+  }).catch(err => {
+    console.error('Failed to load Transformers.js via dynamic import:', err);
+    self.postMessage({ 
+      type: 'error', 
+      message: `Failed to load Transformers.js: ${err.message}` 
+    });
+  });
+}
+
+// Initialize the worker with the imported modules
+function initWorker(pipeline, env) {
 
 // Set environment variables for transformers.js
 env.allowLocalModels = true;
@@ -10,8 +36,21 @@ env.cacheDir = './models';
 let asr = null;
 let isProcessing = false;
 
+// Configure transformers environment
+function configureEnvironment(env) {
+  // Set environment variables for transformers.js
+  env.allowLocalModels = true;
+  env.useBrowserCache = true;
+  env.cacheDir = './models';
+  env.useQuantizedModels = true;
+  
+  return env;
+}
+
 // Initialize the model
 async function initializeModel(modelName = 'Xenova/whisper-base') {
+  // Configure the environment
+  configureEnvironment(env);
   try {
     // Send status update
     self.postMessage({ type: 'status', message: 'Loading model...' });
@@ -121,42 +160,49 @@ async function transcribeAudio(audioData, options = {}) {
   }
 }
 
-// Handle messages from the main thread
-self.addEventListener('message', async (event) => {
-  const { type, data } = event.data;
-  
-  try {
-    switch (type) {
-      case 'initialize':
-        await initializeModel(data?.modelName);
-        break;
-        
-      case 'transcribe':
-        if (!asr) {
-          await initializeModel(data?.modelName);
-        }
-        await transcribeAudio(data.audio, data?.options);
-        break;
-        
-      case 'cancel':
-        // TODO: Implement cancellation logic
-        isProcessing = false;
-        self.postMessage({ type: 'status', message: 'Transcription cancelled' });
-        break;
-        
-      default:
-        self.postMessage({ 
-          type: 'error', 
-          message: `Unknown command: ${type}` 
-        });
-    }
-  } catch (error) {
-    self.postMessage({ 
-      type: 'error', 
-      message: error.message 
-    });
-  }
-});
+}
 
-// Notify that the worker is ready
-self.postMessage({ type: 'ready' });
+// Handle messages from the main thread
+function setupMessageHandler() {
+  self.addEventListener('message', async (event) => {
+    const { type, data } = event.data;
+    
+    try {
+      switch (type) {
+        case 'initialize':
+          await initializeModel(data?.modelName);
+          break;
+          
+        case 'transcribe':
+          if (!asr) {
+            await initializeModel(data?.modelName);
+          }
+          await transcribeAudio(data.audio, data?.options);
+          break;
+          
+        case 'cancel':
+          // TODO: Implement cancellation logic
+          isProcessing = false;
+          self.postMessage({ type: 'status', message: 'Transcription cancelled' });
+          break;
+          
+        default:
+          self.postMessage({ 
+            type: 'error', 
+            message: `Unknown command: ${type}` 
+          });
+      }
+    } catch (error) {
+      self.postMessage({ 
+        type: 'error', 
+        message: error.message 
+      });
+    }
+  });
+
+  // Notify that the worker is ready
+  self.postMessage({ type: 'ready' });
+}
+
+// Set up the message handler
+setupMessageHandler();

@@ -10,6 +10,9 @@ const BYPASS_AUTH = true;
 // We'll initialize the store later using dynamic import                                                                                              
 let store;    
 
+// Create a variable to hold the main window reference
+let mainWindow;
+
 // Log the actual path being used                                                                                                                      
 const frontendPath = path.join(__dirname, '../frontend');                                                                                              
 console.log('Serving frontend files from:', frontendPath);                                                                                             
@@ -18,16 +21,16 @@ console.log('Files in directory:', require('fs').readdirSync(frontendPath));
 // Create Express app and HTTP server
 const expressApp = express();
 const port = process.env.PORT || 3000;
-const server = http.createServer(expressApp);
 
 // Serve static files from the frontend directory
 expressApp.use(express.static(frontendPath));
-                                                                                  
-// Create a variable to hold the main window reference
-let mainWindow;
+expressApp.use(express.json());
+
+// Create HTTP server
+const server = http.createServer(expressApp);
 
 // Start the server and then create the window                                                                                                         
-server.listen(port, () => {                                                                                                                            
+server.listen(port, 'localhost', () => {                                                                                                                            
   console.log(`Server running at http://localhost:${port}`);                                                                                           
   createWindow(); // Create window after server starts                                                                                                                   
 });                                                                                                                                                    
@@ -118,12 +121,19 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),                                                                                                    
       contextIsolation: true,                                                                                                                         
       nodeIntegration: false                                                                                                                          
-    }                                                                                                                                                 
+    },
+    show: false  // Don't show until ready-to-show                                                                                                                                                
   });                                                                                                                                                 
+  
+  // Show window when ready to show
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
                                                                                                                                                       
   // Load the URL after the server is running
-  mainWindow.loadURL(`http://localhost:${port}`);                                                                                
-  console.log(`Loading URL: http://localhost:${port}`);
+  const serverUrl = `http://localhost:${port}`;
+  console.log(`Loading URL: ${serverUrl}`);
+  mainWindow.loadURL(serverUrl);
                                                                                                                                                       
   // Open DevTools in development                                                                                                                     
   if (process.env.NODE_ENV !== 'production') {                                                                                                       
@@ -133,6 +143,17 @@ function createWindow() {
   // Log any load errors
   mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
     console.error('Failed to load:', errorCode, errorDescription);
+    
+    // Try to reload after a short delay
+    setTimeout(() => {
+      console.log('Attempting to reload...');
+      mainWindow.loadURL(serverUrl);
+    }, 1000);
+  });
+  
+  // Handle window close
+  mainWindow.on('closed', () => {
+    mainWindow = null;
   });
 }                                                                                                                                                     
                                                                                                                                                        
@@ -144,7 +165,21 @@ app.whenReady().then(() => {
   app.on('activate', function () {                                                                                                                     
     if (BrowserWindow.getAllWindows().length === 0) createWindow();                                                                                    
   });                                                                                                                                                  
-});                                                                                                                                                   
+});
+
+// Quit when all windows are closed, except on macOS
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+// Ensure proper cleanup on exit
+app.on('before-quit', () => {
+  if (server && server.listening) {
+    server.close();
+  }
+});
                                                                                                                                                        
  app.on('window-all-closed', function () {                                                                                                             
    if (process.platform !== 'darwin') app.quit();                                                                                                      
