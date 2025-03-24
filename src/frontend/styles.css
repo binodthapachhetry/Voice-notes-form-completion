@@ -109,6 +109,18 @@
   .recording {
     animation: pulse 1.5s infinite;
     background-color: #dc2626 !important;
+  }
+  
+  /* Highlighted form fields */
+  @keyframes highlight-pulse {
+    0% { background-color: rgba(37, 99, 235, 0.1); }
+    50% { background-color: rgba(37, 99, 235, 0.2); }
+    100% { background-color: rgba(37, 99, 235, 0.1); }
+  }
+  
+  .highlighted-field {
+    animation: highlight-pulse 1s infinite;
+    border-color: #2563eb !important;
   }                                                                                                                                                     
                                                                                                                                                         
   /* Transcription section */                                                                                                                           

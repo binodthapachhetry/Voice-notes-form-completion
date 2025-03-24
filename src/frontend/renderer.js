@@ -4,7 +4,8 @@ const recordingStatus = document.getElementById('recordingStatus');
 const recordingTime = document.getElementById('recordingTime');                                                                                       
 const transcriptionText = document.getElementById('transcriptionText');                                                                               
 const saveFormButton = document.getElementById('saveFormButton');
-const audioVisualizer = document.getElementById('audioVisualizer');                                                                                     
+const waveformElement = document.getElementById('waveform');
+const audioLevelElement = document.getElementById('audioLevel');
                                                                                                                                                       
 // Form fields                                                                                                                                        
 const patientNameInput = document.getElementById('patientName');                                                                                      
@@ -22,12 +23,13 @@ let recordingSeconds = 0;
 // Audio recording variables
 let audioContext;
 let audioStream;
-let audioRecorder;
-let audioProcessor;
+let mediaRecorder;
+let audioSource;
 let audioAnalyser;
 let audioChunks = [];
 let visualizerContext;
-let animationFrame;     
+let animationFrame;
+let dataArray;
 
 // Event Listeners                                                                                                                                    
 recordButton.addEventListener('click', toggleRecording);                                                                                              
@@ -137,7 +139,8 @@ async function toggleRecording() {
         isRecording = true;                                                                                                                             
         recordButton.textContent = 'Stop Recording';                                                                                                    
         recordButton.classList.add('recording');                                                                                                        
-        recordingStatus.textContent = 'Recording...';                                                                                                   
+        recordingStatus.textContent = 'Recording...';
+        recordingStatus.classList.add('recording');                                                                                                   
         startRecordingTimer();
         startAudioVisualization();                                                                                                                          
       }
@@ -157,7 +160,8 @@ async function toggleRecording() {
         isRecording = false;                                                                                                                            
         recordButton.textContent = 'Start Recording';                                                                                                   
         recordButton.classList.remove('recording');                                                                                                     
-        recordingStatus.textContent = 'Processing...';                                                                                                  
+        recordingStatus.textContent = 'Processing...';
+        recordingStatus.classList.remove('recording');                                                                                                  
         stopRecordingTimer();                                                                                                                           
                                                                                                                                                       
         // Display transcription                                                                                                                        
@@ -172,6 +176,7 @@ async function toggleRecording() {
       isRecording = false;
       recordButton.textContent = 'Start Recording';
       recordButton.classList.remove('recording');
+      recordingStatus.classList.remove('recording');
       stopRecordingTimer();
     }                                                                                                                                 
   }                                                                                                                                                   
@@ -204,43 +209,49 @@ async function initAudioRecording() {
   audioChunks = [];
   
   try {
-    // Get audio stream
+    // Get audio stream with specific constraints for better quality
     audioStream = await navigator.mediaDevices.getUserMedia({ 
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
-        autoGainControl: true
+        autoGainControl: true,
+        sampleRate: 44100,
+        channelCount: 1
       } 
     });
     
     // Create audio context
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    audioContext = new (window.AudioContext || window.webkitAudioContext)({
+      sampleRate: 44100
+    });
     
     // Create source from stream
-    const source = audioContext.createMediaStreamSource(audioStream);
+    audioSource = audioContext.createMediaStreamSource(audioStream);
     
     // Create analyzer for visualization
     audioAnalyser = audioContext.createAnalyser();
     audioAnalyser.fftSize = 256;
-    source.connect(audioAnalyser);
+    audioAnalyser.smoothingTimeConstant = 0.7;
+    audioSource.connect(audioAnalyser);
     
-    // Setup recorder
-    audioRecorder = new MediaRecorder(audioStream);
+    // Create data array for visualization
+    dataArray = new Uint8Array(audioAnalyser.frequencyBinCount);
+    
+    // Setup media recorder
+    mediaRecorder = new MediaRecorder(audioStream, {
+      mimeType: 'audio/webm;codecs=opus',
+      audioBitsPerSecond: 128000
+    });
     
     // Event handler for data available
-    audioRecorder.ondataavailable = (event) => {
+    mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {
         audioChunks.push(event.data);
       }
     };
     
     // Start recording
-    audioRecorder.start(1000); // Collect data every second
-    
-    // Initialize visualizer
-    visualizerContext = audioVisualizer.getContext('2d');
-    audioVisualizer.width = audioVisualizer.clientWidth;
-    audioVisualizer.height = audioVisualizer.clientHeight;
+    mediaRecorder.start(1000); // Collect data every second
     
     console.log('Audio recording initialized successfully');
   } catch (error) {
@@ -251,7 +262,7 @@ async function initAudioRecording() {
 
 async function stopAudioRecording() {
   return new Promise((resolve, reject) => {
-    if (!audioRecorder || audioRecorder.state === 'inactive') {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') {
       reject(new Error('No active recorder'));
       return;
     }
@@ -263,7 +274,7 @@ async function stopAudioRecording() {
     }
     
     // Event for when recording stops
-    audioRecorder.onstop = () => {
+    mediaRecorder.onstop = () => {
       // Create blob from chunks
       const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
       
@@ -272,13 +283,24 @@ async function stopAudioRecording() {
         audioStream.getTracks().forEach(track => track.stop());
       }
       
-      audioStream = null;
-      audioRecorder = null;
-      audioAnalyser = null;
+      // For debugging: create an audio URL for playback
+      const audioUrl = URL.createObjectURL(audioBlob);
+      console.log('Debug: Audio available at:', audioUrl);
       
-      // Clear visualizer
-      if (visualizerContext) {
-        visualizerContext.clearRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+      // Clean up resources
+      audioStream = null;
+      mediaRecorder = null;
+      audioAnalyser = null;
+      audioSource = null;
+      
+      // Clear waveform
+      if (waveformElement) {
+        waveformElement.innerHTML = '';
+      }
+      
+      // Reset audio level
+      if (audioLevelElement) {
+        audioLevelElement.style.width = '0%';
       }
       
       console.log('Audio recording stopped successfully');
@@ -286,45 +308,66 @@ async function stopAudioRecording() {
     };
     
     // Stop recording
-    audioRecorder.stop();
+    mediaRecorder.stop();
   });
 }
 
 function startAudioVisualization() {
-  if (!audioAnalyser || !visualizerContext) {
+  if (!audioAnalyser || !waveformElement) {
     console.error('Visualizer or analyzer not initialized');
     return;
   }
   
-  const bufferLength = audioAnalyser.frequencyBinCount;
-  const dataArray = new Uint8Array(bufferLength);
+  // Create canvas for waveform visualization
+  const canvas = document.createElement('canvas');
+  canvas.width = waveformElement.clientWidth;
+  canvas.height = waveformElement.clientHeight;
+  waveformElement.innerHTML = '';
+  waveformElement.appendChild(canvas);
   
-  visualizerContext.clearRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+  visualizerContext = canvas.getContext('2d');
   
   function draw() {
     if (!isRecording) return;
     
     animationFrame = requestAnimationFrame(draw);
     
+    // Get frequency data
     audioAnalyser.getByteFrequencyData(dataArray);
     
+    // Clear canvas
+    visualizerContext.clearRect(0, 0, canvas.width, canvas.height);
     visualizerContext.fillStyle = '#f0f4f8';
-    visualizerContext.fillRect(0, 0, audioVisualizer.width, audioVisualizer.height);
+    visualizerContext.fillRect(0, 0, canvas.width, canvas.height);
     
-    const barWidth = (audioVisualizer.width / bufferLength) * 2.5;
+    // Calculate average volume for audio level meter
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      sum += dataArray[i];
+    }
+    const average = sum / dataArray.length;
+    const volumePercent = (average / 255) * 100;
+    
+    // Update audio level meter
+    if (audioLevelElement) {
+      audioLevelElement.style.width = `${volumePercent}%`;
+    }
+    
+    // Draw frequency bars
+    const barWidth = (canvas.width / dataArray.length) * 2.5;
     let x = 0;
     
-    for (let i = 0; i < bufferLength; i++) {
-      const barHeight = dataArray[i] / 255 * audioVisualizer.height;
+    for (let i = 0; i < dataArray.length; i++) {
+      const barHeight = (dataArray[i] / 255) * canvas.height;
       
       // Use a gradient based on amplitude
       const intensity = dataArray[i] / 255;
-      const r = Math.floor(39 + (intensity * 180)); // 2563eb -> #1d4ed8
+      const r = Math.floor(37 + (intensity * 180)); // 2563eb -> #1d4ed8
       const g = Math.floor(99 + (intensity * 80));
       const b = Math.floor(235 - (intensity * 100));
       
       visualizerContext.fillStyle = `rgb(${r}, ${g}, ${b})`;
-      visualizerContext.fillRect(x, audioVisualizer.height - barHeight, barWidth, barHeight);
+      visualizerContext.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
       
       x += barWidth + 1;
     }
@@ -352,6 +395,9 @@ async function processTranscription(transcription) {
       medicationsInput.value = entities.medications ? entities.medications.join(', ') : '';                                                             
       medicalHistoryInput.value = entities.medicalHistory ? entities.medicalHistory.join(', ') : '';
       
+      // Highlight the form to show it's been populated
+      highlightFormFields();
+      
       console.log('Form populated with extracted entities:', entities);                                                    
     } else {                                                                                                                                            
       recordingStatus.textContent = 'Error processing transcription';
@@ -361,12 +407,41 @@ async function processTranscription(transcription) {
     console.error('Exception processing transcription:', error);
     recordingStatus.textContent = 'Error processing transcription: ' + error.message;
   }                                                                                                                                                   
+}
+
+// Highlight form fields that have been populated
+function highlightFormFields() {
+  const formFields = [
+    patientNameInput,
+    patientAgeInput,
+    symptomsInput,
+    durationInput,
+    medicationsInput,
+    medicalHistoryInput
+  ];
+  
+  formFields.forEach(field => {
+    if (field && field.value) {
+      // Add a highlight class
+      field.classList.add('highlighted-field');
+      
+      // Remove the highlight after 2 seconds
+      setTimeout(() => {
+        field.classList.remove('highlighted-field');
+      }, 2000);
+    }
+  });
 }                                                                                                                                                     
                                                                                                                                                       
 async function saveForm() {                                                                                                                           
   try {
     // Update status
     recordingStatus.textContent = 'Saving form...';
+    
+    // Validate form data
+    if (!patientNameInput.value.trim()) {
+      throw new Error('Patient name is required');
+    }
     
     // Collect form data                                                                                                                                
     const formData = {                                                                                                                                  
