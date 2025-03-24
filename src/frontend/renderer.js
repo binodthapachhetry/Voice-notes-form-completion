@@ -1,174 +1,174 @@
-// DOM Elements                                                                                                                                       
-const recordButton = document.getElementById('recordButton');                                                                                         
-const recordingStatus = document.getElementById('recordingStatus');                                                                                   
-const recordingTime = document.getElementById('recordingTime');                                                                                       
-const transcriptionText = document.getElementById('transcriptionText');                                                                               
-const saveFormButton = document.getElementById('saveFormButton');
-const waveformElement = document.getElementById('waveform');
-const audioLevelElement = document.getElementById('audioLevel');
-                                                                                                                                                      
-// Form fields                                                                                                                                        
-const patientNameInput = document.getElementById('patientName');                                                                                      
-const patientAgeInput = document.getElementById('patientAge');                                                                                        
-const symptomsInput = document.getElementById('symptoms');                                                                                            
-const durationInput = document.getElementById('duration');                                                                                            
-const medicationsInput = document.getElementById('medications');                                                                                      
-const medicalHistoryInput = document.getElementById('medicalHistory');                                                                                
-                                                                                                                                                      
-// State                                                                                                                                              
-let isRecording = false;                                                                                                                              
-let recordingInterval;                                                                                                                                
-let recordingSeconds = 0;
+// DOM Elements
+let recordButton;
+let recordingStatus;
+let recordingTime;
+let transcriptionText;
+let saveFormButton;
+let audioLevel;
+let waveformContainer;
 
-// Audio recording variables
+// Form fields
+let patientNameInput;
+let patientAgeInput;
+let symptomsInput;
+let durationInput;
+let medicationsInput;
+let medicalHistoryInput;
+
+// Audio Recording variables
+let isRecording = false;
+let recordingInterval;
+let recordingSeconds = 0;
 let audioContext;
-let audioStream;
 let mediaRecorder;
+let audioChunks = [];
+let audioStream;
 let audioSource;
 let audioAnalyser;
-let audioChunks = [];
 let visualizerContext;
 let animationFrame;
 let dataArray;
 
-// Event Listeners                                                                                                                                    
-recordButton.addEventListener('click', toggleRecording);                                                                                              
-saveFormButton.addEventListener('click', saveForm);  
+// Initialize the application
+document.addEventListener('DOMContentLoaded', initializeApp);
 
- // Import the Login component                                                                                                                                                                                     
- import Login from './components/Login.js';                                                                                                                                                                        
-                                                                                                                                                                                                                   
- // DOM Elements (will be initialized after authentication)                                                                                                                                                        
- let recordButton;                                                                                                                                                                                                 
- let recordingStatus;                                                                                                                                                                                              
- let recordingTime;                                                                                                                                                                                                
- let transcriptionText;                                                                                                                                                                                            
- let saveFormButton;                                                                                                                                                                                               
- let audioLevel;                                                                                                                                                                                                   
- let waveformContainer;                                                                                                                                                                                            
- let patientNameInput;                                                                                                                                                                                             
- let patientAgeInput;                                                                                                                                                                                              
- let symptomsInput;                                                                                                                                                                                                
- let durationInput;                                                                                                                                                                                                
- let medicationsInput;                                                                                                                                                                                             
- let medicalHistoryInput;                                                                                                                                                                                          
-                                                                                                                                                                                                                   
- // Audio Recording variables                                                                                                                                                                                      
- let isRecording = false;                                                                                                                                                                                          
- let recordingInterval;                                                                                                                                                                                            
- let recordingSeconds = 0;                                                                                                                                                                                         
- let audioContext;                                                                                                                                                                                                 
- let mediaRecorder;                                                                                                                                                                                                
- let audioChunks = [];                                                                                                                                                                                             
- let analyser;                                                                                                                                                                                                     
- let microphone;                                                                                                                                                                                                   
- let dataArray;                                                                                                                                                                                                    
- let waveform = null;                                                                                                                                                                                              
-                                                                                                                                                                                                                   
- // Authentication state                                                                                                                                                                                           
- let isAuthenticated = false;                                                                                                                                                                                      
- let currentUserId = null;                                                                                                                                                                                         
-                                                                                                                                                                                                                   
- // Initialize the application                                                                                                                                                                                     
- document.addEventListener('DOMContentLoaded', initializeApp); 
-
-
- async function initializeApp() {                                                                                                                                                                                  
-  // Initialize the login component                                                                                                                                                                               
-  const loginContainer = document.getElementById('login-container');                                                                                                                                              
-  const mainContainer = document.getElementById('main-container');                                                                                                                                                
-                                                                                                                                                                                                                  
-  const login = new Login();                                                                                                                                                                                      
-  await login.initialize(loginContainer);                                                                                                                                                                         
-                                                                                                                                                                                                                  
-  // Listen for authentication events                                                                                                                                                                             
-  loginContainer.addEventListener('login-authenticated', (event) => {                                                                                                                                             
-    isAuthenticated = true;                                                                                                                                                                                       
-    currentUserId = event.detail.userId;                                                                                                                                                                          
-                                                                                                                                                                                                                  
-    // Show the main application                                                                                                                                                                                  
-    loginContainer.style.display = 'none';                                                                                                                                                                        
-    mainContainer.style.display = 'block';                                                                                                                                                                        
-                                                                                                                                                                                                                  
-    // Initialize the main application                                                                                                                                                                            
-    initializeMainApp();                                                                                                                                                                                          
-  });                                                                                                                                                                                                             
-}                                                                                                                                                                                                                 
-                                                                                                                                                                                                                  
-/**                                                                                                                                                                                                               
- * Initialize the main application after authentication                                                                                                                                                           
- */                                                                                                                                                                                                               
-async function initializeMainApp() {                                                                                                                                                                              
-  // Initialize DOM elements                                                                                                                                                                                      
-  recordButton = document.getElementById('recordButton');                                                                                                                                                         
-  recordingStatus = document.getElementById('recordingStatus');                                                                                                                                                   
-  recordingTime = document.getElementById('recordingTime');                                                                                                                                                       
-  transcriptionText = document.getElementById('transcriptionText');                                                                                                                                               
-  saveFormButton = document.getElementById('saveFormButton');                                                                                                                                                     
-  audioLevel = document.getElementById('audioLevel');                                                                                                                                                             
-  waveformContainer = document.getElementById('waveform');                                                                                                                                                        
-                                                                                                                                                                                                                  
-  // Form fields                                                                                                                                                                                                  
-  patientNameInput = document.getElementById('patientName');                                                                                                                                                      
-  patientAgeInput = document.getElementById('patientAge');                                                                                                                                                        
-  symptomsInput = document.getElementById('symptoms');                                                                                                                                                            
-  durationInput = document.getElementById('duration');                                                                                                                                                            
-  medicationsInput = document.getElementById('medications');                                                                                                                                                      
-  medicalHistoryInput = document.getElementById('medicalHistory');                                                                                                                                                
-                                                                                                                                                                                                                  
-  // Check for permissions                                                                                                                                                                                        
-  await window.api.checkPermissions();                                                                                                                                                                            
-                                                                                                                                                                                                                  
-  // Set up event listeners                                                                                                                                                                                       
-  recordButton.addEventListener('click', toggleRecording);                                                                                                                                                        
-  saveFormButton.addEventListener('click', saveForm);                                                                                                                                                             
+async function initializeApp() {
+  console.log('Initializing application...');
+  
+  // Initialize the login component
+  const loginContainer = document.getElementById('login-container');
+  const mainContainer = document.getElementById('main-container');
+  
+  if (!loginContainer) {
+    console.error('Login container not found');
+    return;
+  }
+  
+  if (!mainContainer) {
+    console.error('Main container not found');
+    return;
+  }
+  
+  try {
+    // Since we're bypassing authentication, show the main container immediately
+    loginContainer.style.display = 'none';
+    mainContainer.style.display = 'block';
+    
+    // Initialize the main application
+    initializeMainApp();
+    
+    console.log('Application initialized successfully');
+  } catch (error) {
+    console.error('Error initializing application:', error);
+  }
 }
-                                                                                                                                                                                                                                                     
-                                                                                                                                                      
-// Functions                                                                                                                                          
-async function toggleRecording() {                                                                                                                    
-  if (!isRecording) {                                                                                                                                 
+
+/**
+ * Initialize the main application after authentication
+ */
+async function initializeMainApp() {
+  console.log('Initializing main application...');
+  
+  // Initialize DOM elements
+  recordButton = document.getElementById('recordButton');
+  recordingStatus = document.getElementById('recordingStatus');
+  recordingTime = document.getElementById('recordingTime');
+  transcriptionText = document.getElementById('transcriptionText');
+  saveFormButton = document.getElementById('saveFormButton');
+  audioLevel = document.getElementById('audioLevel');
+  waveformContainer = document.getElementById('waveform');
+  
+  // Form fields
+  patientNameInput = document.getElementById('patientName');
+  patientAgeInput = document.getElementById('patientAge');
+  symptomsInput = document.getElementById('symptoms');
+  durationInput = document.getElementById('duration');
+  medicationsInput = document.getElementById('medications');
+  medicalHistoryInput = document.getElementById('medicalHistory');
+  
+  // Log which elements were found and which weren't
+  console.log('DOM Elements found:', {
+    recordButton: !!recordButton,
+    recordingStatus: !!recordingStatus,
+    recordingTime: !!recordingTime,
+    transcriptionText: !!transcriptionText,
+    saveFormButton: !!saveFormButton,
+    audioLevel: !!audioLevel,
+    waveformContainer: !!waveformContainer,
+    patientNameInput: !!patientNameInput,
+    patientAgeInput: !!patientAgeInput,
+    symptomsInput: !!symptomsInput,
+    durationInput: !!durationInput,
+    medicationsInput: !!medicationsInput,
+    medicalHistoryInput: !!medicalHistoryInput
+  });
+  
+  // Set up event listeners
+  if (recordButton) {
+    recordButton.addEventListener('click', toggleRecording);
+    console.log('Added click listener to record button');
+  } else {
+    console.error('Record button not found');
+  }
+  
+  if (saveFormButton) {
+    saveFormButton.addEventListener('click', saveForm);
+    console.log('Added click listener to save form button');
+  } else {
+    console.error('Save form button not found');
+  }
+}
+// Functions
+async function toggleRecording() {
+  console.log('Toggle recording called, current state:', isRecording);
+  
+  if (!isRecording) {
     try {
       // Initialize audio recording
       await initAudioRecording();
       
       // Notify backend that recording started
-      const result = await window.api.startRecording();                                                                                                 
+      const result = await window.api.startRecording();
+      console.log('Backend start recording result:', result);
       
-      if (result.success) {                                                                                                                             
-        isRecording = true;                                                                                                                             
-        recordButton.textContent = 'Stop Recording';                                                                                                    
-        recordButton.classList.add('recording');                                                                                                        
+      if (result.success) {
+        isRecording = true;
+        recordButton.textContent = 'Stop Recording';
+        recordButton.classList.add('recording');
         recordingStatus.textContent = 'Recording...';
-        recordingStatus.classList.add('recording');                                                                                                   
+        recordingStatus.classList.add('recording');
         startRecordingTimer();
-        startAudioVisualization();                                                                                                                          
+        startAudioVisualization();
+        console.log('Recording started successfully');
       }
     } catch (error) {
       console.error('Error starting recording:', error);
       recordingStatus.textContent = 'Error: ' + error.message;
-    }                                                                                                                                 
-  } else {                                                                                                                                            
+    }
+  } else {
     try {
       // Stop audio recording
       const audioBlob = await stopAudioRecording();
+      console.log('Audio recording stopped, blob size:', audioBlob.size);
       
       // Notify backend that recording stopped
-      const result = await window.api.stopRecording();                                                                                                  
+      const result = await window.api.stopRecording();
+      console.log('Backend stop recording result:', result);
       
-      if (result.success) {                                                                                                                             
-        isRecording = false;                                                                                                                            
-        recordButton.textContent = 'Start Recording';                                                                                                   
-        recordButton.classList.remove('recording');                                                                                                     
+      if (result.success) {
+        isRecording = false;
+        recordButton.textContent = 'Start Recording';
+        recordButton.classList.remove('recording');
         recordingStatus.textContent = 'Processing...';
-        recordingStatus.classList.remove('recording');                                                                                                  
-        stopRecordingTimer();                                                                                                                           
-                                                                                                                                                      
-        // Display transcription                                                                                                                        
-        transcriptionText.value = result.transcription;                                                                                                 
-                                                                                                                                                      
-        // Process transcription                                                                                                                        
-        processTranscription(result.transcription);                                                                                                     
+        recordingStatus.classList.remove('recording');
+        stopRecordingTimer();
+        
+        // Display transcription
+        transcriptionText.value = result.transcription;
+        
+        // Process transcription
+        processTranscription(result.transcription);
+        console.log('Transcription processing initiated');
       }
     } catch (error) {
       console.error('Error stopping recording:', error);
@@ -178,46 +178,48 @@ async function toggleRecording() {
       recordButton.classList.remove('recording');
       recordingStatus.classList.remove('recording');
       stopRecordingTimer();
-    }                                                                                                                                 
-  }                                                                                                                                                   
-}                                                                                                                                                     
-                                                                                                                                                      
-function startRecordingTimer() {                                                                                                                      
-  recordingSeconds = 0;                                                                                                                               
-  updateRecordingTime();                                                                                                                              
-  recordingInterval = setInterval(() => {                                                                                                             
-    recordingSeconds++;                                                                                                                               
-    updateRecordingTime();                                                                                                                            
+    }
+  }
+}
+
+function startRecordingTimer() {
+  recordingSeconds = 0;
+  updateRecordingTime();
+  recordingInterval = setInterval(() => {
+    recordingSeconds++;
+    updateRecordingTime();
   }, 1000);
-  console.log('Recording timer started');                                                                                                                                           
-}                                                                                                                                                     
-                                                                                                                                                      
-function stopRecordingTimer() {                                                                                                                       
+  console.log('Recording timer started');
+}
+
+function stopRecordingTimer() {
   clearInterval(recordingInterval);
-  console.log('Recording timer stopped');                                                                                                                   
-}                                                                                                                                                     
-                                                                                                                                                      
-function updateRecordingTime() {                                                                                                                      
-  const minutes = Math.floor(recordingSeconds / 60).toString().padStart(2, '0');                                                                      
-  const seconds = (recordingSeconds % 60).toString().padStart(2, '0');                                                                                
-  recordingTime.textContent = `${minutes}:${seconds}`;                                                                                                
+  console.log('Recording timer stopped');
+}
+
+function updateRecordingTime() {
+  const minutes = Math.floor(recordingSeconds / 60).toString().padStart(2, '0');
+  const seconds = (recordingSeconds % 60).toString().padStart(2, '0');
+  recordingTime.textContent = `${minutes}:${seconds}`;
 }
 
 // Audio Recording Functions
 async function initAudioRecording() {
+  console.log('Initializing audio recording...');
+  
   // Reset audio chunks
   audioChunks = [];
   
   try {
     // Get audio stream with specific constraints for better quality
-    audioStream = await navigator.mediaDevices.getUserMedia({ 
+    audioStream = await navigator.mediaDevices.getUserMedia({
       audio: {
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
         sampleRate: 44100,
         channelCount: 1
-      } 
+      }
     });
     
     // Create audio context
@@ -261,6 +263,8 @@ async function initAudioRecording() {
 }
 
 async function stopAudioRecording() {
+  console.log('Stopping audio recording...');
+  
   return new Promise((resolve, reject) => {
     if (!mediaRecorder || mediaRecorder.state === 'inactive') {
       reject(new Error('No active recorder'));
@@ -294,13 +298,13 @@ async function stopAudioRecording() {
       audioSource = null;
       
       // Clear waveform
-      if (waveformElement) {
-        waveformElement.innerHTML = '';
+      if (waveformContainer) {
+        waveformContainer.innerHTML = '';
       }
       
       // Reset audio level
-      if (audioLevelElement) {
-        audioLevelElement.style.width = '0%';
+      if (audioLevel) {
+        audioLevel.style.width = '0%';
       }
       
       console.log('Audio recording stopped successfully');
@@ -313,17 +317,19 @@ async function stopAudioRecording() {
 }
 
 function startAudioVisualization() {
-  if (!audioAnalyser || !waveformElement) {
+  console.log('Starting audio visualization...');
+  
+  if (!audioAnalyser || !waveformContainer) {
     console.error('Visualizer or analyzer not initialized');
     return;
   }
   
   // Create canvas for waveform visualization
   const canvas = document.createElement('canvas');
-  canvas.width = waveformElement.clientWidth;
-  canvas.height = waveformElement.clientHeight;
-  waveformElement.innerHTML = '';
-  waveformElement.appendChild(canvas);
+  canvas.width = waveformContainer.clientWidth;
+  canvas.height = waveformContainer.clientHeight;
+  waveformContainer.innerHTML = '';
+  waveformContainer.appendChild(canvas);
   
   visualizerContext = canvas.getContext('2d');
   
@@ -349,8 +355,8 @@ function startAudioVisualization() {
     const volumePercent = (average / 255) * 100;
     
     // Update audio level meter
-    if (audioLevelElement) {
-      audioLevelElement.style.width = `${volumePercent}%`;
+    if (audioLevel) {
+      audioLevel.style.width = `${volumePercent}%`;
     }
     
     // Draw frequency bars
@@ -375,38 +381,40 @@ function startAudioVisualization() {
   
   draw();
   console.log('Audio visualization started');
-}                                                                                                                                                     
-                                                                                                                                                      
-async function processTranscription(transcription) {                                                                                                  
-  recordingStatus.textContent = 'Extracting information...';                                                                                          
+}
+async function processTranscription(transcription) {
+  console.log('Processing transcription:', transcription);
   
-  try {                                                                                                                                                    
-    const result = await window.api.processTranscription(transcription);                                                                                
-                                                                                                                                                      
-    if (result.success) {                                                                                                                               
-      recordingStatus.textContent = 'Ready';                                                                                                            
-                                                                                                                                                      
-      // Populate form with extracted entities                                                                                                          
-      const entities = result.entities;                                                                                                                 
-      patientNameInput.value = entities.patientName || '';                                                                                              
-      patientAgeInput.value = entities.patientAge || '';                                                                                                
-      symptomsInput.value = entities.symptoms ? entities.symptoms.join(', ') : '';                                                                      
-      durationInput.value = entities.duration || '';                                                                                                    
-      medicationsInput.value = entities.medications ? entities.medications.join(', ') : '';                                                             
+  recordingStatus.textContent = 'Extracting information...';
+  
+  try {
+    const result = await window.api.processTranscription(transcription);
+    console.log('Transcription processing result:', result);
+    
+    if (result.success) {
+      recordingStatus.textContent = 'Ready';
+      
+      // Populate form with extracted entities
+      const entities = result.entities;
+      patientNameInput.value = entities.patientName || '';
+      patientAgeInput.value = entities.patientAge || '';
+      symptomsInput.value = entities.symptoms ? entities.symptoms.join(', ') : '';
+      durationInput.value = entities.duration || '';
+      medicationsInput.value = entities.medications ? entities.medications.join(', ') : '';
       medicalHistoryInput.value = entities.medicalHistory ? entities.medicalHistory.join(', ') : '';
       
       // Highlight the form to show it's been populated
       highlightFormFields();
       
-      console.log('Form populated with extracted entities:', entities);                                                    
-    } else {                                                                                                                                            
+      console.log('Form populated with extracted entities:', entities);
+    } else {
       recordingStatus.textContent = 'Error processing transcription';
-      console.error('Error processing transcription:', result.error);                                                                                   
+      console.error('Error processing transcription:', result.error);
     }
   } catch (error) {
     console.error('Exception processing transcription:', error);
     recordingStatus.textContent = 'Error processing transcription: ' + error.message;
-  }                                                                                                                                                   
+  }
 }
 
 // Highlight form fields that have been populated
@@ -431,9 +439,11 @@ function highlightFormFields() {
       }, 2000);
     }
   });
-}                                                                                                                                                     
-                                                                                                                                                      
-async function saveForm() {                                                                                                                           
+}
+
+async function saveForm() {
+  console.log('Saving form...');
+  
   try {
     // Update status
     recordingStatus.textContent = 'Saving form...';
@@ -443,32 +453,33 @@ async function saveForm() {
       throw new Error('Patient name is required');
     }
     
-    // Collect form data                                                                                                                                
-    const formData = {                                                                                                                                  
-      patientName: patientNameInput.value,                                                                                                              
-      patientAge: patientAgeInput.value,                                                                                                                
-      symptoms: symptomsInput.value.split(',').map(s => s.trim()).filter(s => s),                                                                                      
-      duration: durationInput.value,                                                                                                                    
-      medications: medicationsInput.value.split(',').map(m => m.trim()).filter(m => m),                                                                                
+    // Collect form data
+    const formData = {
+      patientName: patientNameInput.value,
+      patientAge: patientAgeInput.value,
+      symptoms: symptomsInput.value.split(',').map(s => s.trim()).filter(s => s),
+      duration: durationInput.value,
+      medications: medicationsInput.value.split(',').map(m => m.trim()).filter(m => m),
       medicalHistory: medicalHistoryInput.value.split(',').map(h => h.trim()).filter(h => h),
-      timestamp: new Date().toISOString()                                                                           
-    };                                                                                                                                                  
-                                                                                                                                                      
+      timestamp: new Date().toISOString()
+    };
+    
     console.log('Saving form data:', formData);
     
-    // Save form                                                                                                                                        
-    const result = await window.api.saveForm(formData);                                                                                                 
-                                                                                                                                                      
-    if (result.success) {                                                                                                                               
+    // Save form
+    const result = await window.api.saveForm(formData);
+    console.log('Save form result:', result);
+    
+    if (result.success) {
       recordingStatus.textContent = 'Form saved successfully';
-      alert('Form saved successfully!');                                                                                                                
-    } else {                                                                                                                                            
+      alert('Form saved successfully!');
+    } else {
       recordingStatus.textContent = 'Error saving form';
-      alert('Error saving form: ' + result.message);                                                                                                    
+      alert('Error saving form: ' + result.message);
     }
   } catch (error) {
     console.error('Exception saving form:', error);
     recordingStatus.textContent = 'Error saving form';
     alert('Error saving form: ' + error.message);
-  }                                                                                                                                                   
-} 
+  }
+}

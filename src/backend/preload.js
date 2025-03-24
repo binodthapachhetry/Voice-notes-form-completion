@@ -22,5 +22,26 @@ contextBridge.exposeInMainWorld('api', {
   
   // Authentication
   authenticateWebAuthn: (data) => ipcRenderer.invoke('authenticate-webauthn', data),
-  verifyAuthentication: (data) => ipcRenderer.invoke('verify-authentication', data)
+  verifyAuthentication: (data) => ipcRenderer.invoke('verify-authentication', data),
+  
+  // Permissions
+  checkPermissions: async () => {
+    try {
+      // Check for microphone permission
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        console.log('Checking microphone permission...');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Stop the stream immediately after getting permission
+        stream.getTracks().forEach(track => track.stop());
+        console.log('Microphone permission granted');
+        return { microphone: true };
+      } else {
+        console.error('MediaDevices API not available');
+        return { microphone: false, error: 'MediaDevices API not available' };
+      }
+    } catch (error) {
+      console.error('Error checking permissions:', error);
+      return { microphone: false, error: error.message };
+    }
+  }
 });

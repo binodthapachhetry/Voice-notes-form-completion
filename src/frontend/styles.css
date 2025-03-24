@@ -93,10 +93,25 @@
     box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
   }
   
-  #audioVisualizer {
+  #waveform {
     width: 100%;
     height: 100%;
     display: block;
+  }
+  
+  .audio-level-meter {
+    height: 10px;
+    background-color: #e5e7eb;
+    border-radius: 4px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+  
+  .audio-level-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #2563eb;
+    transition: width 0.1s ease;
   }
   
   /* Animation for recording state */
