@@ -129,13 +129,11 @@ let webAuthnServer;
                                                                                                                                                        
  ipcMain.handle('stop-recording', async () => {                                                                                                        
    console.log('Recording stopped');                                                                                                                   
-   // In a real implementation, we would process the audio file here
-   // For now, we'll continue using the mock transcription                                                                                                      
+   // We're now doing transcription on the client side with WebAssembly
+   // so we just acknowledge the recording has stopped                                                                                                     
    return {                                                                                                                                            
      success: true,                                                                                                                                    
-     message: 'Recording stopped',                                                                                                                     
-     // Mock transcription result                                                                                                                      
-     transcription: 'Patient John Doe, 45 years old, complains of persistent headache for the past three days. No fever or nausea. History of migraine Currently taking ibuprofen 400mg as needed.'                                                                                                          
+     message: 'Recording stopped'                                                                                                                     
    };                                                                                                                                                  
  });
  

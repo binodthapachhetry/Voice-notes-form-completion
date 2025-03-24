@@ -1,3 +1,6 @@
+// Import speech recognition service
+import speechRecognitionService from './speechRecognitionService.js';
+
 // DOM Elements
 let recordButton;
 let recordingStatus;
@@ -28,6 +31,10 @@ let audioAnalyser;
 let visualizerContext;
 let animationFrame;
 let dataArray;
+
+// Speech recognition variables
+let isTranscribing = false;
+let lastRecordedAudioBlob = null;
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', initializeApp);
@@ -117,6 +124,52 @@ async function initializeMainApp() {
   } else {
     console.error('Save form button not found');
   }
+  
+  // Initialize speech recognition service
+  try {
+    // Set up callbacks
+    speechRecognitionService.setCallbacks({
+      onStatus: (message) => {
+        console.log('Speech recognition status:', message);
+        if (recordingStatus) {
+          recordingStatus.textContent = message;
+        }
+      },
+      onProgress: (progress) => {
+        console.log('Transcription progress:', progress.toFixed(1) + '%');
+        // Could update a progress bar here
+      },
+      onResult: (result) => {
+        console.log('Transcription result:', result);
+        if (transcriptionText) {
+          transcriptionText.value = result.text;
+        }
+        isTranscribing = false;
+        
+        // Process the transcription to extract entities
+        processTranscription(result.text);
+      },
+      onError: (error) => {
+        console.error('Speech recognition error:', error);
+        if (recordingStatus) {
+          recordingStatus.textContent = 'Error: ' + error.message;
+        }
+        isTranscribing = false;
+      },
+      onInterim: (text) => {
+        console.log('Interim transcription:', text);
+        if (transcriptionText) {
+          transcriptionText.value = text + ' ...';
+        }
+      }
+    });
+    
+    // Initialize the service
+    await speechRecognitionService.initialize({ modelName: 'base' });
+    console.log('Speech recognition service initialized');
+  } catch (error) {
+    console.error('Failed to initialize speech recognition:', error);
+  }
 }
 // Functions
 async function toggleRecording() {
@@ -151,24 +204,33 @@ async function toggleRecording() {
       const audioBlob = await stopAudioRecording();
       console.log('Audio recording stopped, blob size:', audioBlob.size);
       
-      // Notify backend that recording stopped
-      const result = await window.api.stopRecording();
-      console.log('Backend stop recording result:', result);
+      isRecording = false;
+      recordButton.textContent = 'Start Recording';
+      recordButton.classList.remove('recording');
+      recordingStatus.textContent = 'Transcribing...';
+      recordingStatus.classList.remove('recording');
+      stopRecordingTimer();
       
-      if (result.success) {
-        isRecording = false;
-        recordButton.textContent = 'Start Recording';
-        recordButton.classList.remove('recording');
-        recordingStatus.textContent = 'Processing...';
-        recordingStatus.classList.remove('recording');
-        stopRecordingTimer();
+      // Start on-device transcription
+      if (!isTranscribing && lastRecordedAudioBlob) {
+        isTranscribing = true;
         
-        // Display transcription
-        transcriptionText.value = result.transcription;
-        
-        // Process transcription
-        processTranscription(result.transcription);
-        console.log('Transcription processing initiated');
+        try {
+          // Clear previous transcription
+          if (transcriptionText) {
+            transcriptionText.value = 'Transcribing...';
+          }
+          
+          // Transcribe the audio using our on-device service
+          await speechRecognitionService.transcribe(lastRecordedAudioBlob);
+          
+          // Note: Results will be handled by the callback functions
+          // set in initializeMainApp
+        } catch (error) {
+          console.error('Error transcribing audio:', error);
+          recordingStatus.textContent = 'Error: ' + error.message;
+          isTranscribing = false;
+        }
       }
     } catch (error) {
       console.error('Error stopping recording:', error);
@@ -281,6 +343,9 @@ async function stopAudioRecording() {
     mediaRecorder.onstop = () => {
       // Create blob from chunks
       const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+      
+      // Store the audio blob for transcription
+      lastRecordedAudioBlob = audioBlob;
       
       // Clean up
       if (audioStream) {
