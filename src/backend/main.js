@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const http = require('http');
+const fs = require('fs');
 
 // TEMPORARY: Flag to bypass authentication
 const BYPASS_AUTH = true;
@@ -13,14 +14,37 @@ let store;
 // Create a variable to hold the main window reference
 let mainWindow;
 
+// Create a variable to hold the server reference
+let server;
+
 // Log the actual path being used                                                                                                                      
 const frontendPath = path.join(__dirname, '../frontend');                                                                                              
 console.log('Serving frontend files from:', frontendPath);                                                                                             
-console.log('Files in directory:', require('fs').readdirSync(frontendPath));                                                                           
+console.log('Files in directory:', fs.readdirSync(frontendPath));                                                                                           
                                                                                                                                                        
-                                                                                                                                                   
-   
-                                                                                                                                                       
+// Logging implementation
+const logger = {
+  info: (message, meta = {}) => {
+    // In production, use a proper logging service like Winston, Bunyan, or a cloud logging service
+    console.log(JSON.stringify({ 
+      level: 'info', 
+      message, 
+      timestamp: new Date().toISOString(), 
+      ...meta 
+    }));
+  },
+  error: (message, error, meta = {}) => {
+    console.error(JSON.stringify({ 
+      level: 'error', 
+      message, 
+      error: error.message, 
+      stack: error.stack,
+      timestamp: new Date().toISOString(), 
+      ...meta 
+    }));
+  }
+};
+
 // Function to securely get encryption key
 async function getEncryptionKey() {
   if (process.env.NODE_ENV === 'production') {
@@ -56,29 +80,6 @@ async function getEncryptionKey() {
   });                                                                                                                                                
 })();
 
-// Logging implementation
-const logger = {
-  info: (message, meta = {}) => {
-    // In production, use a proper logging service like Winston, Bunyan, or a cloud logging service
-    console.log(JSON.stringify({ 
-      level: 'info', 
-      message, 
-      timestamp: new Date().toISOString(), 
-      ...meta 
-    }));
-  },
-  error: (message, error, meta = {}) => {
-    console.error(JSON.stringify({ 
-      level: 'error', 
-      message, 
-      error: error.message, 
-      stack: error.stack,
-      timestamp: new Date().toISOString(), 
-      ...meta 
-    }));
-  }
-};
-
 // Import WebAuthn libraries asynchronously
 let webAuthnServer;
 (async () => {
@@ -97,7 +98,24 @@ let webAuthnServer;
   }
 })();
 
-                                                                                                                                                       
+// WebAuthn configuration
+const rpName = 'FormFillVoiceAI Healthcare';
+const rpID = process.env.NODE_ENV === 'production' ? 'yourdomain.com' : 'localhost';
+const port = process.env.PORT || 3000;
+const origin = process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : `http://localhost:${port}`;
+const expectedOrigin = origin;
+
+// Create Express app and HTTP server
+const expressApp = express();
+
+// Serve static files from the frontend directory
+expressApp.use(express.static(frontendPath));
+expressApp.use(express.json());
+
+// Create HTTP server
+server = http.createServer(expressApp);
+
+// Function to create the main window
 function createWindow() {                                                                                                                             
   mainWindow = new BrowserWindow({                                                                                                                    
     width: 1200,                                                                                                                                      
@@ -109,24 +127,6 @@ function createWindow() {
     },
     show: false  // Don't show until ready-to-show                                                                                                                                                
   });   
-  
-  
-  // Create Express app and HTTP server
-const expressApp = express();
-const port = process.env.PORT || 3000;
-
-// Serve static files from the frontend directory
-expressApp.use(express.static(frontendPath));
-expressApp.use(express.json());
-
-// Create HTTP server
-const server = http.createServer(expressApp);
-
-// Start the server and then create the window                                                                                                         
-server.listen(port, 'localhost', () => {                                                                                                                            
-  console.log(`Server running at http://localhost:${port}`);                                                                                           
-  createWindow(); // Create window after server starts                                                                                                                   
-}); 
   
   // Show window when ready to show
   mainWindow.once('ready-to-show', () => {
@@ -159,10 +159,14 @@ server.listen(port, 'localhost', () => {
     mainWindow = null;
   });
 }                                                                                                                                                     
-                                                                                                                                                       
 // Initialize app when ready
 app.whenReady().then(() => {                                                                                                                           
-  // Server will call createWindow when ready
+  // Start the server and then create the window                                                                                                         
+  server.listen(port, 'localhost', () => {                                                                                                                            
+    console.log(`Server running at http://localhost:${port}`);                                                                                           
+    createWindow(); // Create window after server starts                                                                                                                   
+  }); 
+  
   console.log('Electron app ready, waiting for server to start...');
                                                                                                                                                   
   app.on('activate', function () {                                                                                                                     
@@ -183,35 +187,24 @@ app.on('before-quit', () => {
     server.close();
   }
 });
-                                                                                                                                                       
- app.on('window-all-closed', function () {                                                                                                             
-   if (process.platform !== 'darwin') app.quit();                                                                                                      
- });                                                                                                                                                   
-                                                                                                                                                       
- // IPC Handlers for recording functionality                                                                                                           
- ipcMain.handle('start-recording', async () => {                                                                                                       
-   console.log('Recording started');                                                                                                                   
-   // This is now just a notification that frontend recording has started
-   // Actual recording happens in the renderer process using Web Audio API                                                                                           
-   return { success: true, message: 'Recording started' };                                                                                             
- });                                                                                                                                                   
-                                                                                                                                                       
- ipcMain.handle('stop-recording', async () => {                                                                                                        
-   console.log('Recording stopped');                                                                                                                   
-   // We're now doing transcription on the client side with WebAssembly
-   // so we just acknowledge the recording has stopped                                                                                                     
-   return {                                                                                                                                            
-     success: true,                                                                                                                                    
-     message: 'Recording stopped'                                                                                                                     
-   };                                                                                                                                                  
- });
 
-
-// WebAuthn configuration
-const rpName = 'FormFillVoiceAI Healthcare';
-const rpID = process.env.NODE_ENV === 'production' ? 'yourdomain.com' : 'localhost';
-const origin = process.env.NODE_ENV === 'production' ? 'https://yourdomain.com' : `http://localhost:${port}`;
-const expectedOrigin = origin;
+// IPC Handlers for recording functionality                                                                                                           
+ipcMain.handle('start-recording', async () => {                                                                                                       
+  console.log('Recording started');                                                                                                                   
+  // This is now just a notification that frontend recording has started
+  // Actual recording happens in the renderer process using Web Audio API                                                                                           
+  return { success: true, message: 'Recording started' };                                                                                             
+});                                                                                                                                                   
+                                                                                                                                                       
+ipcMain.handle('stop-recording', async () => {                                                                                                        
+  console.log('Recording stopped');                                                                                                                   
+  // We're now doing transcription on the client side with WebAssembly
+  // so we just acknowledge the recording has stopped                                                                                                     
+  return {                                                                                                                                            
+    success: true,                                                                                                                                    
+    message: 'Recording stopped'                                                                                                                     
+  };                                                                                                                                                  
+});
 
 // Rate limiting implementation
 const rateLimit = {};
@@ -247,6 +240,44 @@ function generateChallenge() {
   const challenge = generateRandomBuffer();
   return challenge.toString('base64url');
 }
+
+ipcMain.handle('process-transcription', async (event, transcription) => {                                                                             
+  console.log('Processing transcription:', transcription);                                                                                            
+  // Placeholder for actual NLP processing                                                                                                            
+                                                                                                                                                       
+  // Mock extracted entities                                                                                                                          
+  const extractedEntities = {                                                                                                                         
+    patientName: 'John Doe',                                                                                                                          
+    patientAge: '45',                                                                                                                                 
+    symptoms: ['headache'],                                                                                                                           
+    duration: '3 days',                                                                                                                               
+    medications: ['ibuprofen 400mg'],                                                                                                                 
+    medicalHistory: ['migraines']                                                                                                                     
+  };                                                                                                                                                  
+                                                                                                                                                       
+  return { success: true, entities: extractedEntities };                                                                                              
+});                                                                                                                                                   
+                                                                                                                                                       
+ipcMain.handle('save-form', async (event, formData) => {                                                                                              
+  console.log('Saving form:', formData);                                                                                                              
+  // Placeholder for actual form saving logic                                                                                                         
+                                                                                                                                                       
+  // Show save dialog                                                                                                                                 
+  const { filePath } = await dialog.showSaveDialog({                                                                                                  
+    title: 'Save Completed Form',                                                                                                                     
+    defaultPath: 'completed_form.json',                                                                                                               
+    filters: [                                                                                                                                        
+      { name: 'JSON Files', extensions: ['json'] }                                                                                                    
+    ]                                                                                                                                                 
+  });                                                                                                                                                 
+                                                                                                                                                       
+  if (filePath) {                                                                                                                                     
+    // In a real app, you would save the file here                                                                                                    
+    return { success: true, message: `Form would be saved to ${filePath}` };                                                                          
+  }                                                                                                                                                   
+                                                                                                                                                       
+  return { success: false, message: 'Save cancelled' };                                                                                               
+});
 
 // Database abstraction layer
 // In production, this would connect to a real database
@@ -772,42 +803,3 @@ ipcMain.handle('verify-authentication', async (event, { userId, assertionRespons
     };
   }
 });
-                                                                                                                                                       
- ipcMain.handle('process-transcription', async (event, transcription) => {                                                                             
-   console.log('Processing transcription:', transcription);                                                                                            
-   // Placeholder for actual NLP processing                                                                                                            
-                                                                                                                                                       
-   // Mock extracted entities                                                                                                                          
-   const extractedEntities = {                                                                                                                         
-     patientName: 'John Doe',                                                                                                                          
-     patientAge: '45',                                                                                                                                 
-     symptoms: ['headache'],                                                                                                                           
-     duration: '3 days',                                                                                                                               
-     medications: ['ibuprofen 400mg'],                                                                                                                 
-     medicalHistory: ['migraines']                                                                                                                     
-   };                                                                                                                                                  
-                                                                                                                                                       
-   return { success: true, entities: extractedEntities };                                                                                              
- });                                                                                                                                                   
-                                                                                                                                                       
- ipcMain.handle('save-form', async (event, formData) => {                                                                                              
-   console.log('Saving form:', formData);                                                                                                              
-   // Placeholder for actual form saving logic                                                                                                         
-                                                                                                                                                       
-   // Show save dialog                                                                                                                                 
-   const { filePath } = await dialog.showSaveDialog({                                                                                                  
-     title: 'Save Completed Form',                                                                                                                     
-     defaultPath: 'completed_form.json',                                                                                                               
-     filters: [                                                                                                                                        
-       { name: 'JSON Files', extensions: ['json'] }                                                                                                    
-     ]                                                                                                                                                 
-   });                                                                                                                                                 
-                                                                                                                                                       
-   if (filePath) {                                                                                                                                     
-     // In a real app, you would save the file here                                                                                                    
-     return { success: true, message: `Form would be saved to ${filePath}` };                                                                          
-   }                                                                                                                                                   
-                                                                                                                                                       
-   return { success: false, message: 'Save cancelled' };                                                                                               
- });                                                                                                                                                  
-                                                                                                                                                      
