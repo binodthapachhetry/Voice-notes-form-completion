@@ -136,6 +136,31 @@
   .highlighted-field {
     animation: highlight-pulse 1s infinite;
     border-color: #2563eb !important;
+  }
+  
+  /* Transcription progress bar */
+  .transcription-progress-container {
+    width: 100%;
+    height: 6px;
+    background-color: #e5e7eb;
+    border-radius: 3px;
+    margin-top: 10px;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  .transcription-progress-bar {
+    height: 100%;
+    width: 0%;
+    background-color: #2563eb;
+    transition: width 0.3s ease;
+  }
+  
+  .transcription-status {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 4px;
+    text-align: center;
   }                                                                                                                                                     
                                                                                                                                                         
   /* Transcription section */                                                                                                                           
