@@ -18,22 +18,7 @@ const frontendPath = path.join(__dirname, '../frontend');
 console.log('Serving frontend files from:', frontendPath);                                                                                             
 console.log('Files in directory:', require('fs').readdirSync(frontendPath));                                                                           
                                                                                                                                                        
-// Create Express app and HTTP server
-const expressApp = express();
-const port = process.env.PORT || 3000;
-
-// Serve static files from the frontend directory
-expressApp.use(express.static(frontendPath));
-expressApp.use(express.json());
-
-// Create HTTP server
-const server = http.createServer(expressApp);
-
-// Start the server and then create the window                                                                                                         
-server.listen(port, 'localhost', () => {                                                                                                                            
-  console.log(`Server running at http://localhost:${port}`);                                                                                           
-  createWindow(); // Create window after server starts                                                                                                                   
-});                                                                                                                                                    
+                                                                                                                                                   
    
                                                                                                                                                        
 // Function to securely get encryption key
@@ -123,7 +108,25 @@ function createWindow() {
       nodeIntegration: false                                                                                                                          
     },
     show: false  // Don't show until ready-to-show                                                                                                                                                
-  });                                                                                                                                                 
+  });   
+  
+  
+  // Create Express app and HTTP server
+const expressApp = express();
+const port = process.env.PORT || 3000;
+
+// Serve static files from the frontend directory
+expressApp.use(express.static(frontendPath));
+expressApp.use(express.json());
+
+// Create HTTP server
+const server = http.createServer(expressApp);
+
+// Start the server and then create the window                                                                                                         
+server.listen(port, 'localhost', () => {                                                                                                                            
+  console.log(`Server running at http://localhost:${port}`);                                                                                           
+  createWindow(); // Create window after server starts                                                                                                                   
+}); 
   
   // Show window when ready to show
   mainWindow.once('ready-to-show', () => {
