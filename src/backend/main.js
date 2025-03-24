@@ -10,7 +10,6 @@ const BYPASS_AUTH = true;
 // We'll initialize the store later using dynamic import                                                                                              
 let store;    
 
-
 // Log the actual path being used                                                                                                                      
 const frontendPath = path.join(__dirname, '../frontend');                                                                                              
 console.log('Serving frontend files from:', frontendPath);                                                                                             
@@ -22,13 +21,15 @@ const port = process.env.PORT || 3000;
 const server = http.createServer(expressApp);
 
 // Serve static files from the frontend directory
-expressApp.use(express.static(path.join(__dirname, '../frontend')));
+expressApp.use(express.static(frontendPath));
                                                                                   
-                                                                                                                                                       
+// Create a variable to hold the main window reference
+let mainWindow;
+
 // Start the server and then create the window                                                                                                         
 server.listen(port, () => {                                                                                                                            
   console.log(`Server running at http://localhost:${port}`);                                                                                           
-  createWindow(); // Move this here                                                                                                                    
+  createWindow(); // Create window after server starts                                                                                                                   
 });                                                                                                                                                    
    
                                                                                                                                                        
@@ -109,30 +110,37 @@ let webAuthnServer;
 })();
 
                                                                                                                                                        
- let mainWindow;   
-                                                                                                                                    
+function createWindow() {                                                                                                                             
+  mainWindow = new BrowserWindow({                                                                                                                    
+    width: 1200,                                                                                                                                      
+    height: 800,                                                                                                                                      
+    webPreferences: {                                                                                                                                 
+      preload: path.join(__dirname, 'preload.js'),                                                                                                    
+      contextIsolation: true,                                                                                                                         
+      nodeIntegration: false                                                                                                                          
+    }                                                                                                                                                 
+  });                                                                                                                                                 
+                                                                                                                                                      
+  // Load the URL after the server is running
+  mainWindow.loadURL(`http://localhost:${port}`);                                                                                
+  console.log(`Loading URL: http://localhost:${port}`);
+                                                                                                                                                      
+  // Open DevTools in development                                                                                                                     
+  if (process.env.NODE_ENV !== 'production') {                                                                                                       
+    mainWindow.webContents.openDevTools();                                                                                                            
+  }
+  
+  // Log any load errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Failed to load:', errorCode, errorDescription);
+  });
+}                                                                                                                                                     
                                                                                                                                                        
- function createWindow() {                                                                                                                             
-   mainWindow = new BrowserWindow({                                                                                                                    
-     width: 1200,                                                                                                                                      
-     height: 800,                                                                                                                                      
-     webPreferences: {                                                                                                                                 
-       preload: path.join(__dirname, 'preload.js'),                                                                                                    
-       contextIsolation: true,                                                                                                                         
-       nodeIntegration: false                                                                                                                          
-     }                                                                                                                                                 
-   });                                                                                                                                                 
-                                                                                                                                                       
-   mainWindow.loadURL(`http://localhost:${port}`);                                                                                
-                                                                                                                                                       
-   // Open DevTools in development                                                                                                                     
-   if (process.env.NODE_ENV === 'development') {                                                                                                       
-     mainWindow.webContents.openDevTools();                                                                                                            
-   }                                                                                                                                                   
- }                                                                                                                                                     
-                                                                                                                                                       
- app.whenReady().then(() => {                                                                                                                           
-  // Server will call createWindow when ready                                                                                                          
+// Initialize app when ready
+app.whenReady().then(() => {                                                                                                                           
+  // Server will call createWindow when ready
+  console.log('Electron app ready, waiting for server to start...');
+                                                                                                                                                  
   app.on('activate', function () {                                                                                                                     
     if (BrowserWindow.getAllWindows().length === 0) createWindow();                                                                                    
   });                                                                                                                                                  
