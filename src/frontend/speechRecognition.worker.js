@@ -1,5 +1,5 @@
 // Import transformers.js in worker context
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.15.1';
+import { pipeline, env } from '@xenova/transformers';
 
 // Set environment variables for transformers.js
 env.allowLocalModels = true;

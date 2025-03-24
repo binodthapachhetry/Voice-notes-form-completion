@@ -8,7 +8,29 @@ const http = require('http');
 const BYPASS_AUTH = true;
                                                                                                                                                        
 // We'll initialize the store later using dynamic import                                                                                              
-let store;                                                                                                                                            
+let store;    
+
+
+// Log the actual path being used                                                                                                                      
+const frontendPath = path.join(__dirname, '../frontend');                                                                                              
+console.log('Serving frontend files from:', frontendPath);                                                                                             
+console.log('Files in directory:', require('fs').readdirSync(frontendPath));                                                                           
+                                                                                                                                                       
+// Create Express app and HTTP server
+const expressApp = express();
+const port = process.env.PORT || 3000;
+const server = http.createServer(expressApp);
+
+// Serve static files from the frontend directory
+expressApp.use(express.static(path.join(__dirname, '../frontend')));
+                                                                                  
+                                                                                                                                                       
+// Start the server and then create the window                                                                                                         
+server.listen(port, () => {                                                                                                                            
+  console.log(`Server running at http://localhost:${port}`);                                                                                           
+  createWindow(); // Move this here                                                                                                                    
+});                                                                                                                                                    
+   
                                                                                                                                                        
 // Function to securely get encryption key
 async function getEncryptionKey() {
@@ -85,8 +107,10 @@ let webAuthnServer;
     logger.error('Failed to load WebAuthn server libraries:', error, { module: 'webauthn' });
   }
 })();
+
                                                                                                                                                        
- let mainWindow;                                                                                                                                       
+ let mainWindow;   
+                                                                                                                                    
                                                                                                                                                        
  function createWindow() {                                                                                                                             
    mainWindow = new BrowserWindow({                                                                                                                    
@@ -107,13 +131,12 @@ let webAuthnServer;
    }                                                                                                                                                   
  }                                                                                                                                                     
                                                                                                                                                        
- app.whenReady().then(() => {                                                                                                                          
-   createWindow();                                                                                                                                     
-                                                                                                                                                       
-   app.on('activate', function () {                                                                                                                    
-     if (BrowserWindow.getAllWindows().length === 0) createWindow();                                                                                   
-   });                                                                                                                                                 
- });                                                                                                                                                   
+ app.whenReady().then(() => {                                                                                                                           
+  // Server will call createWindow when ready                                                                                                          
+  app.on('activate', function () {                                                                                                                     
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();                                                                                    
+  });                                                                                                                                                  
+});                                                                                                                                                   
                                                                                                                                                        
  app.on('window-all-closed', function () {                                                                                                             
    if (process.platform !== 'darwin') app.quit();                                                                                                      
@@ -136,19 +159,7 @@ let webAuthnServer;
      message: 'Recording stopped'                                                                                                                     
    };                                                                                                                                                  
  });
- 
-// Create Express app and HTTP server
-const expressApp = express();
-const port = process.env.PORT || 3000;
-const server = http.createServer(expressApp);
 
-// Serve static files from the frontend directory
-expressApp.use(express.static(path.join(__dirname, '../frontend')));
-
-// Start the server
-server.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
-});
 
 // WebAuthn configuration
 const rpName = 'FormFillVoiceAI Healthcare';
