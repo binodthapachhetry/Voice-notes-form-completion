@@ -3,6 +3,9 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const http = require('http');
+
+// TEMPORARY: Flag to bypass authentication
+const BYPASS_AUTH = true;
                                                                                                                                                        
 // We'll initialize the store later using dynamic import                                                                                              
 let store;                                                                                                                                            
@@ -321,6 +324,18 @@ const sessions = {
 ipcMain.handle('register-webauthn', async (event, userId) => {
   logger.info('Generating registration options for user:', { userId });
   
+  // TEMPORARY: Bypass WebAuthn registration
+  if (BYPASS_AUTH) {
+    return {
+      success: true,
+      credential: {
+        id: 'bypass-credential-id',
+        type: 'public-key',
+        created: new Date().toISOString()
+      }
+    };
+  }
+  
   // Check rate limiting
   if (!checkRateLimit(userId, 'register')) {
     logger.info('Rate limit exceeded for registration', { userId });
@@ -398,6 +413,18 @@ ipcMain.handle('register-webauthn', async (event, userId) => {
 
 ipcMain.handle('verify-registration', async (event, { userId, attestationResponse }) => {
   console.log('Verifying registration for user:', userId);
+  
+  // TEMPORARY: Bypass WebAuthn verification
+  if (BYPASS_AUTH) {
+    return {
+      success: true,
+      credential: {
+        id: 'bypass-credential-id',
+        type: 'public-key',
+        created: new Date().toISOString()
+      }
+    };
+  }
   
   try {
     if (!webAuthnServer) {
@@ -539,6 +566,15 @@ function ensureCompliance(userData) {
 ipcMain.handle('authenticate-webauthn', async (event, { userId, credentialId }) => {
   logger.info('Generating authentication options for user:', { userId });
   
+  // TEMPORARY: Bypass WebAuthn authentication
+  if (BYPASS_AUTH) {
+    return {
+      success: true,
+      userId: userId || 'bypass-user-id',
+      sessionToken: 'bypass-session-token'
+    };
+  }
+  
   // Check rate limiting
   if (!checkRateLimit(userId, 'authenticate')) {
     logger.info('Rate limit exceeded for authentication', { userId });
@@ -605,6 +641,15 @@ ipcMain.handle('authenticate-webauthn', async (event, { userId, credentialId }) 
 
 ipcMain.handle('verify-authentication', async (event, { userId, assertionResponse }) => {
   console.log('Verifying authentication for user:', userId);
+  
+  // TEMPORARY: Bypass WebAuthn verification
+  if (BYPASS_AUTH) {
+    return {
+      success: true,
+      userId: userId || 'bypass-user-id',
+      sessionToken: 'bypass-session-token'
+    };
+  }
   
   try {
     if (!webAuthnServer) {

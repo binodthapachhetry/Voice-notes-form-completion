@@ -19,32 +19,32 @@ class Login {
      */                                                                                                                                                                                                             
     async initialize(container) {                                                                                                                                                                                   
       this.container = container;                                                                                                                                                                                   
-                                                                                                                                                                                                                    
-      try {
-        // Check if we have a stored credential                                                                                                                                                                       
-        const storedCredential = localStorage.getItem('webauthn-credential');                                                                                                                                         
-        if (storedCredential) {                                                                                                                                                                                       
-          this.credential = JSON.parse(storedCredential);
-          // Also retrieve the user ID if available
-          const storedUserId = localStorage.getItem('webauthn-userid');
-          if (storedUserId) {
-            this.userId = storedUserId;
-          }
-        }
-      } catch (error) {
-        console.error('Error loading stored credentials:', error);
-        // Clear potentially corrupted storage
-        localStorage.removeItem('webauthn-credential');
-        localStorage.removeItem('webauthn-userid');
-        this.credential = null;
-      }
       
-      // Check if we have an active session
-      const sessionToken = sessionStorage.getItem('auth-session-token');
-      if (sessionToken) {
-        this.sessionToken = sessionToken;
-        this.isAuthenticated = true;
-      }
+      // TEMPORARY: Auto-authenticate without WebAuthn
+      this.isAuthenticated = true;
+      this.userId = `user-${Date.now()}`;
+      this.sessionToken = "temporary-session-token";
+      
+      // Store session token in sessionStorage
+      const sessionData = {
+        token: this.sessionToken,
+        userId: this.userId,
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+      };
+      sessionStorage.setItem('auth-session-data', JSON.stringify(sessionData));
+      
+      // Trigger the authenticated event immediately
+      setTimeout(() => {
+        const event = new CustomEvent('login-authenticated', {
+          detail: { 
+            userId: this.userId,
+            sessionToken: this.sessionToken
+          }
+        });
+        if (this.container) {
+          this.container.dispatchEvent(event);
+        }
+      }, 100);
                                                                                                                                                                                                                     
       this.render();                                                                                                                                                                                                
     }                                                                                                                                                                                                               
@@ -57,32 +57,11 @@ class Login {
                                                                                                                                                                                                                     
       this.container.innerHTML = `                                                                                                                                                                                  
         <div class="login-container">                                                                                                                                                                               
-          <h2>Secure Authentication</h2>                                                                                                                                                                            
-          <p>Use WebAuthn for secure, hardware-backed authentication</p>                                                                                                                                            
-                                                                                                                                                                                                                    
-          <div class="login-buttons">                                                                                                                                                                               
-            ${!this.credential ?                                                                                                                                                                                    
-              `<button id="register-button" class="primary-button">Register New Device</button>` :                                                                                                                  
-              `<button id="login-button" class="primary-button">Login with WebAuthn</button>`                                                                                                                       
-            }                                                                                                                                                                                                       
-          </div>                                                                                                                                                                                                    
-                                                                                                                                                                                                                    
-          <div id="login-status" class="status-message"></div>                                                                                                                                                      
+          <h2>Authentication Bypassed</h2>                                                                                                                                                                            
+          <p>WebAuthn authentication is temporarily disabled for development.</p>                                                                                                                                            
+          <div id="login-status" class="status-message">Automatically authenticated with ID: ${this.userId}</div>                                                                                                                                                      
         </div>                                                                                                                                                                                                      
       `;                                                                                                                                                                                                            
-                                                                                                                                                                                                                    
-      // Add event listeners                                                                                                                                                                                        
-      if (!this.credential) {                                                                                                                                                                                       
-        const registerButton = this.container.querySelector('#register-button');                                                                                                                                    
-        if (registerButton) {                                                                                                                                                                                       
-          registerButton.addEventListener('click', () => this.register());                                                                                                                                          
-        }                                                                                                                                                                                                           
-      } else {                                                                                                                                                                                                      
-        const loginButton = this.container.querySelector('#login-button');                                                                                                                                          
-        if (loginButton) {                                                                                                                                                                                          
-          loginButton.addEventListener('click', () => this.authenticate());                                                                                                                                         
-        }                                                                                                                                                                                                           
-      }                                                                                                                                                                                                             
     }                                                                                                                                                                                                               
                                                                                                                                                                                                                     
     /**
