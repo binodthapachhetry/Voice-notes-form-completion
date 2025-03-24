@@ -1,37 +1,37 @@
-// // DOM Elements                                                                                                                                       
-// const recordButton = document.getElementById('recordButton');                                                                                         
-// const recordingStatus = document.getElementById('recordingStatus');                                                                                   
-// const recordingTime = document.getElementById('recordingTime');                                                                                       
-// const transcriptionText = document.getElementById('transcriptionText');                                                                               
-// const saveFormButton = document.getElementById('saveFormButton');
-// const audioVisualizer = document.getElementById('audioVisualizer');                                                                                     
+// DOM Elements                                                                                                                                       
+const recordButton = document.getElementById('recordButton');                                                                                         
+const recordingStatus = document.getElementById('recordingStatus');                                                                                   
+const recordingTime = document.getElementById('recordingTime');                                                                                       
+const transcriptionText = document.getElementById('transcriptionText');                                                                               
+const saveFormButton = document.getElementById('saveFormButton');
+const audioVisualizer = document.getElementById('audioVisualizer');                                                                                     
                                                                                                                                                       
-// // Form fields                                                                                                                                        
-// const patientNameInput = document.getElementById('patientName');                                                                                      
-// const patientAgeInput = document.getElementById('patientAge');                                                                                        
-// const symptomsInput = document.getElementById('symptoms');                                                                                            
-// const durationInput = document.getElementById('duration');                                                                                            
-// const medicationsInput = document.getElementById('medications');                                                                                      
-// const medicalHistoryInput = document.getElementById('medicalHistory');                                                                                
+// Form fields                                                                                                                                        
+const patientNameInput = document.getElementById('patientName');                                                                                      
+const patientAgeInput = document.getElementById('patientAge');                                                                                        
+const symptomsInput = document.getElementById('symptoms');                                                                                            
+const durationInput = document.getElementById('duration');                                                                                            
+const medicationsInput = document.getElementById('medications');                                                                                      
+const medicalHistoryInput = document.getElementById('medicalHistory');                                                                                
                                                                                                                                                       
-// // State                                                                                                                                              
-// let isRecording = false;                                                                                                                              
-// let recordingInterval;                                                                                                                                
-// let recordingSeconds = 0;
+// State                                                                                                                                              
+let isRecording = false;                                                                                                                              
+let recordingInterval;                                                                                                                                
+let recordingSeconds = 0;
 
-// // Audio recording variables
-// let audioContext;
-// let audioStream;
-// let audioRecorder;
-// let audioProcessor;
-// let audioAnalyser;
-// let audioChunks = [];
-// let visualizerContext;
-// let animationFrame;     
+// Audio recording variables
+let audioContext;
+let audioStream;
+let audioRecorder;
+let audioProcessor;
+let audioAnalyser;
+let audioChunks = [];
+let visualizerContext;
+let animationFrame;     
 
-// // Event Listeners                                                                                                                                    
-// recordButton.addEventListener('click', toggleRecording);                                                                                              
-// saveFormButton.addEventListener('click', saveForm);  
+// Event Listeners                                                                                                                                    
+recordButton.addEventListener('click', toggleRecording);                                                                                              
+saveFormButton.addEventListener('click', saveForm);  
 
  // Import the Login component                                                                                                                                                                                     
  import Login from './components/Login.js';                                                                                                                                                                        
@@ -183,11 +183,13 @@ function startRecordingTimer() {
   recordingInterval = setInterval(() => {                                                                                                             
     recordingSeconds++;                                                                                                                               
     updateRecordingTime();                                                                                                                            
-  }, 1000);                                                                                                                                           
+  }, 1000);
+  console.log('Recording timer started');                                                                                                                                           
 }                                                                                                                                                     
                                                                                                                                                       
 function stopRecordingTimer() {                                                                                                                       
-  clearInterval(recordingInterval);                                                                                                                   
+  clearInterval(recordingInterval);
+  console.log('Recording timer stopped');                                                                                                                   
 }                                                                                                                                                     
                                                                                                                                                       
 function updateRecordingTime() {                                                                                                                      
@@ -201,42 +203,55 @@ async function initAudioRecording() {
   // Reset audio chunks
   audioChunks = [];
   
-  // Get audio stream
-  audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  
-  // Create audio context
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  
-  // Create source from stream
-  const source = audioContext.createMediaStreamSource(audioStream);
-  
-  // Create analyzer for visualization
-  audioAnalyser = audioContext.createAnalyser();
-  audioAnalyser.fftSize = 256;
-  source.connect(audioAnalyser);
-  
-  // Setup recorder
-  audioRecorder = new MediaRecorder(audioStream);
-  
-  // Event handler for data available
-  audioRecorder.ondataavailable = (event) => {
-    if (event.data.size > 0) {
-      audioChunks.push(event.data);
-    }
-  };
-  
-  // Start recording
-  audioRecorder.start();
-  
-  // Initialize visualizer
-  visualizerContext = audioVisualizer.getContext('2d');
-  audioVisualizer.width = audioVisualizer.clientWidth;
-  audioVisualizer.height = audioVisualizer.clientHeight;
+  try {
+    // Get audio stream
+    audioStream = await navigator.mediaDevices.getUserMedia({ 
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      } 
+    });
+    
+    // Create audio context
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    
+    // Create source from stream
+    const source = audioContext.createMediaStreamSource(audioStream);
+    
+    // Create analyzer for visualization
+    audioAnalyser = audioContext.createAnalyser();
+    audioAnalyser.fftSize = 256;
+    source.connect(audioAnalyser);
+    
+    // Setup recorder
+    audioRecorder = new MediaRecorder(audioStream);
+    
+    // Event handler for data available
+    audioRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunks.push(event.data);
+      }
+    };
+    
+    // Start recording
+    audioRecorder.start(1000); // Collect data every second
+    
+    // Initialize visualizer
+    visualizerContext = audioVisualizer.getContext('2d');
+    audioVisualizer.width = audioVisualizer.clientWidth;
+    audioVisualizer.height = audioVisualizer.clientHeight;
+    
+    console.log('Audio recording initialized successfully');
+  } catch (error) {
+    console.error('Error initializing audio recording:', error);
+    throw error;
+  }
 }
 
 async function stopAudioRecording() {
   return new Promise((resolve, reject) => {
-    if (!audioRecorder) {
+    if (!audioRecorder || audioRecorder.state === 'inactive') {
       reject(new Error('No active recorder'));
       return;
     }
@@ -266,6 +281,7 @@ async function stopAudioRecording() {
         visualizerContext.clearRect(0, 0, audioVisualizer.width, audioVisualizer.height);
       }
       
+      console.log('Audio recording stopped successfully');
       resolve(audioBlob);
     };
     
@@ -275,7 +291,10 @@ async function stopAudioRecording() {
 }
 
 function startAudioVisualization() {
-  if (!audioAnalyser || !visualizerContext) return;
+  if (!audioAnalyser || !visualizerContext) {
+    console.error('Visualizer or analyzer not initialized');
+    return;
+  }
   
   const bufferLength = audioAnalyser.frequencyBinCount;
   const dataArray = new Uint8Array(bufferLength);
@@ -312,46 +331,69 @@ function startAudioVisualization() {
   }
   
   draw();
+  console.log('Audio visualization started');
 }                                                                                                                                                     
                                                                                                                                                       
 async function processTranscription(transcription) {                                                                                                  
   recordingStatus.textContent = 'Extracting information...';                                                                                          
+  
+  try {                                                                                                                                                    
+    const result = await window.api.processTranscription(transcription);                                                                                
                                                                                                                                                       
-  const result = await window.api.processTranscription(transcription);                                                                                
+    if (result.success) {                                                                                                                               
+      recordingStatus.textContent = 'Ready';                                                                                                            
                                                                                                                                                       
-  if (result.success) {                                                                                                                               
-    recordingStatus.textContent = 'Ready';                                                                                                            
-                                                                                                                                                      
-    // Populate form with extracted entities                                                                                                          
-    const entities = result.entities;                                                                                                                 
-    patientNameInput.value = entities.patientName || '';                                                                                              
-    patientAgeInput.value = entities.patientAge || '';                                                                                                
-    symptomsInput.value = entities.symptoms ? entities.symptoms.join(', ') : '';                                                                      
-    durationInput.value = entities.duration || '';                                                                                                    
-    medicationsInput.value = entities.medications ? entities.medications.join(', ') : '';                                                             
-    medicalHistoryInput.value = entities.medicalHistory ? entities.medicalHistory.join(', ') : '';                                                    
-  } else {                                                                                                                                            
-    recordingStatus.textContent = 'Error processing transcription';                                                                                   
+      // Populate form with extracted entities                                                                                                          
+      const entities = result.entities;                                                                                                                 
+      patientNameInput.value = entities.patientName || '';                                                                                              
+      patientAgeInput.value = entities.patientAge || '';                                                                                                
+      symptomsInput.value = entities.symptoms ? entities.symptoms.join(', ') : '';                                                                      
+      durationInput.value = entities.duration || '';                                                                                                    
+      medicationsInput.value = entities.medications ? entities.medications.join(', ') : '';                                                             
+      medicalHistoryInput.value = entities.medicalHistory ? entities.medicalHistory.join(', ') : '';
+      
+      console.log('Form populated with extracted entities:', entities);                                                    
+    } else {                                                                                                                                            
+      recordingStatus.textContent = 'Error processing transcription';
+      console.error('Error processing transcription:', result.error);                                                                                   
+    }
+  } catch (error) {
+    console.error('Exception processing transcription:', error);
+    recordingStatus.textContent = 'Error processing transcription: ' + error.message;
   }                                                                                                                                                   
 }                                                                                                                                                     
                                                                                                                                                       
 async function saveForm() {                                                                                                                           
-  // Collect form data                                                                                                                                
-  const formData = {                                                                                                                                  
-    patientName: patientNameInput.value,                                                                                                              
-    patientAge: patientAgeInput.value,                                                                                                                
-    symptoms: symptomsInput.value.split(',').map(s => s.trim()),                                                                                      
-    duration: durationInput.value,                                                                                                                    
-    medications: medicationsInput.value.split(',').map(m => m.trim()),                                                                                
-    medicalHistory: medicalHistoryInput.value.split(',').map(h => h.trim())                                                                           
-  };                                                                                                                                                  
+  try {
+    // Update status
+    recordingStatus.textContent = 'Saving form...';
+    
+    // Collect form data                                                                                                                                
+    const formData = {                                                                                                                                  
+      patientName: patientNameInput.value,                                                                                                              
+      patientAge: patientAgeInput.value,                                                                                                                
+      symptoms: symptomsInput.value.split(',').map(s => s.trim()).filter(s => s),                                                                                      
+      duration: durationInput.value,                                                                                                                    
+      medications: medicationsInput.value.split(',').map(m => m.trim()).filter(m => m),                                                                                
+      medicalHistory: medicalHistoryInput.value.split(',').map(h => h.trim()).filter(h => h),
+      timestamp: new Date().toISOString()                                                                           
+    };                                                                                                                                                  
                                                                                                                                                       
-  // Save form                                                                                                                                        
-  const result = await window.api.saveForm(formData);                                                                                                 
+    console.log('Saving form data:', formData);
+    
+    // Save form                                                                                                                                        
+    const result = await window.api.saveForm(formData);                                                                                                 
                                                                                                                                                       
-  if (result.success) {                                                                                                                               
-    alert('Form saved successfully!');                                                                                                                
-  } else {                                                                                                                                            
-    alert('Error saving form: ' + result.message);                                                                                                    
+    if (result.success) {                                                                                                                               
+      recordingStatus.textContent = 'Form saved successfully';
+      alert('Form saved successfully!');                                                                                                                
+    } else {                                                                                                                                            
+      recordingStatus.textContent = 'Error saving form';
+      alert('Error saving form: ' + result.message);                                                                                                    
+    }
+  } catch (error) {
+    console.error('Exception saving form:', error);
+    recordingStatus.textContent = 'Error saving form';
+    alert('Error saving form: ' + error.message);
   }                                                                                                                                                   
 } 
