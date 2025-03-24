@@ -1,0 +1,49 @@
+appId: com.healthcare.formfillvoiceai
+productName: FormFillVoiceAI
+copyright: Copyright © 2025
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - src/**/*
+  - node_modules/**/*
+  - package.json
+
+extraResources:
+  - from: src/frontend/models
+    to: models
+    filter: ["**/*"]
+
+asarUnpack:
+  - "**/*.wasm"
+  - "node_modules/@xenova/transformers/**/*"
+
+protocols:
+  - name: FormFillVoiceAI
+    schemes: [formfillvoiceai]
+
+mac:
+  category: public.app-category.healthcare
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: entitlements.plist
+  entitlementsInherit: entitlements.plist
+  extendInfo:
+    NSMicrophoneUsageDescription: "This app requires microphone access to record voice notes for transcription."
+
+win:
+  target: nsis
+  
+linux:
+  target: AppImage
+  category: Healthcare
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  
+publish:
+  provider: github
+  private: true
