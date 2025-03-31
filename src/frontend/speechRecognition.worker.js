@@ -1,56 +1,118 @@
-// Import transformers.js in worker context
-try {
-  importScripts('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js');
-  const { pipeline, env } = self.Transformers;
-  
-  // Log successful import
-  console.log('Transformers.js loaded successfully via importScripts');
-  
-  // Continue with the rest of the worker code...
-  initWorker(pipeline, env);
-} catch (e) {
-  console.error('Failed to load Transformers.js via importScripts:', e);
-  
-  // Fallback to dynamic import
-  import('@xenova/transformers').then(({ pipeline, env }) => {
-    console.log('Transformers.js loaded successfully via dynamic import');
-    initWorker(pipeline, env);
-  }).catch(err => {
-    console.error('Failed to load Transformers.js via dynamic import:', err);
-    self.postMessage({ 
-      type: 'error', 
-      message: `Failed to load Transformers.js: ${err.message}` 
-    });
-  });
-}
+// Import transformers.js in worker context                                                                                                            
+try {                                                                                                                                                  
+  // Use CDN URL for the worker - use the UMD build which exposes global variables                                                                     
+  importScripts('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.umd.min.js');                                              
+                                                                                                                                                       
+  // Log successful import and check what's available                                                                                                  
+  console.log('Transformers.js loaded successfully via importScripts');                                                                                
+  console.log('Available globals:', Object.keys(self));                                                                                                
+                                                                                                                                                       
+  // Access the global Transformers object                                                                                                             
+  if (self.Transformers) {                                                                                                                             
+    const { pipeline, env } = self.Transformers;                                                                                                       
+                                                                                                                                                       
+    // Log to verify pipeline is a function                                                                                                            
+    console.log('Pipeline type:', typeof pipeline);                                                                                                    
+                                                                                                                                                       
+    // Set environment variables for transformers.js                                                                                                   
+    env.allowLocalModels = true;                                                                                                                       
+    env.useBrowserCache = true;                                                                                                                        
+    env.cacheDir = './models';                                                                                                                         
+    env.useQuantizedModels = true;                                                                                                                     
+                                                                                                                                                       
+    // Initialize the worker with the imported modules                                                                                                 
+    initWorker(pipeline, env);                                                                                                                         
+                                                                                                                                                       
+    // Notify that the worker is ready                                                                                                                 
+    self.postMessage({ type: 'ready' });                                                                                                               
+  } else {                                                                                                                                             
+    throw new Error('Transformers global object not found');                                                                                           
+  }                                                                                                                                                    
+} catch (error) {                                                                                                                                      
+  console.error('Failed to load Transformers.js via importScripts:', error);                                                                           
+                                                                                                                                                       
+  // Fallback to fetch + eval approach                                                                                                                 
+  fetch('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.umd.min.js')                                                       
+    .then(response => response.text())                                                                                                                 
+    .then(code => {                                                                                                                                    
+      // Evaluate the code to create the global Transformers object                                                                                    
+      eval(code);                                                                                                                                      
+                                                                                                                                                       
+      if (self.Transformers) {                                                                                                                         
+        const { pipeline, env } = self.Transformers;                                                                                                   
+                                                                                                                                                       
+        // Set environment variables for transformers.js                                                                                               
+        env.allowLocalModels = true;                                                                                                                   
+        env.useBrowserCache = true;                                                                                                                    
+        env.cacheDir = './models';                                                                                                                     
+        env.useQuantizedModels = true;                                                                                                                 
+                                                                                                                                                       
+        // Initialize the worker with the imported modules                                                                                             
+        initWorker(pipeline, env);                                                                                                                     
+                                                                                                                                                       
+        // Notify that the worker is ready                                                                                                             
+        self.postMessage({ type: 'ready' });                                                                                                           
+      } else {                                                                                                                                         
+        throw new Error('Transformers global object not found after eval');                                                                            
+      }                                                                                                                                                
+    })                                                                                                                                                 
+    .catch(err => {                                                                                                                                    
+      console.error('Failed to load Transformers.js via fetch+eval:', err);                                                                            
+      self.postMessage({                                                                                                                               
+        type: 'error',                                                                                                                                 
+        message: `Failed to load Transformers.js: ${err.message}`                                                                                      
+      });                                                                                                                                              
+    });                                                                                                                                                
+}       
 
-// Initialize the worker with the imported modules
-function initWorker(pipeline, env) {
-
-// Set environment variables for transformers.js
-env.allowLocalModels = true;
-env.useBrowserCache = true;
-env.cacheDir = './models';
-
-// Store the ASR pipeline
-let asr = null;
-let isProcessing = false;
-
-// Configure transformers environment
-function configureEnvironment(env) {
-  // Set environment variables for transformers.js
-  env.allowLocalModels = true;
-  env.useBrowserCache = true;
-  env.cacheDir = './models';
-  env.useQuantizedModels = true;
-  
-  return env;
-}
-
-// Initialize the model
-async function initializeModel(modelName = 'Xenova/whisper-base') {
-  // Configure the environment
-  configureEnvironment(env);
+// Global variables                                                                                                                                    
+let asr = null;                                                                                                                                        
+let isProcessing = false;                                                                                                                              
+                                                                                                                                                       
+// Initialize the worker with the imported modules                                                                                                     
+function initWorker(pipeline, env) {                                                                                                                   
+  // Set up message handler                                                                                                                            
+  self.addEventListener('message', async (event) => {                                                                                                  
+    try {                                                                                                                                              
+      const { type, data } = event.data;                                                                                                               
+                                                                                                                                                       
+      switch (type) {                                                                                                                                  
+        case 'initialize':                                                                                                                             
+          await initializeModel(pipeline, env, data?.modelName);                                                                                       
+          break;                                                                                                                                       
+                                                                                                                                                       
+        case 'transcribe':                                                                                                                             
+          if (!asr) {                                                                                                                                  
+            await initializeModel(pipeline, env, data?.modelName);                                                                                     
+          }                                                                                                                                            
+          await transcribeAudio(data.audio, data?.options);                                                                                            
+          break;                                                                                                                                       
+                                                                                                                                                       
+        case 'cancel':                                                                                                                                 
+          // Implement cancellation logic                                                                                                              
+          isProcessing = false;                                                                                                                        
+          self.postMessage({ type: 'status', message: 'Transcription cancelled' });                                                                    
+          break;                                                                                                                                       
+                                                                                                                                                       
+        default:                                                                                                                                       
+          self.postMessage({                                                                                                                           
+            type: 'error',                                                                                                                             
+            message: `Unknown command: ${type}`                                                                                                        
+          });                                                                                                                                          
+      }                                                                                                                                                
+    } catch (error) {                                                                                                                                  
+      console.error('Error in worker message handler:', error);                                                                                        
+      self.postMessage({                                                                                                                               
+        type: 'error',                                                                                                                                 
+        message: `Worker error: ${error.message || 'Unknown error'}`                                                                                   
+      });                                                                                                                                              
+    }                                                                                                                                                  
+  });                                                                                                                                                  
+}                                                                                                                                                     
+                                                                                                                                                       
+// Initialize the model                                                                                                                                
+async function initializeModel(pipeline, env, modelName = 'Xenova/whisper-base') {                                                                                     
+  // Configure the environment                                                                                                                         
   try {
     // Send status update
     self.postMessage({ type: 'status', message: 'Loading model...' });
@@ -160,49 +222,42 @@ async function transcribeAudio(audioData, options = {}) {
   }
 }
 
-}
-
-// Handle messages from the main thread
-function setupMessageHandler() {
-  self.addEventListener('message', async (event) => {
-    const { type, data } = event.data;
-    
-    try {
-      switch (type) {
-        case 'initialize':
-          await initializeModel(data?.modelName);
-          break;
-          
-        case 'transcribe':
-          if (!asr) {
-            await initializeModel(data?.modelName);
-          }
-          await transcribeAudio(data.audio, data?.options);
-          break;
-          
-        case 'cancel':
-          // TODO: Implement cancellation logic
-          isProcessing = false;
-          self.postMessage({ type: 'status', message: 'Transcription cancelled' });
-          break;
-          
-        default:
-          self.postMessage({ 
-            type: 'error', 
-            message: `Unknown command: ${type}` 
-          });
-      }
-    } catch (error) {
-      self.postMessage({ 
-        type: 'error', 
-        message: error.message 
-      });
-    }
-  });
-
-  // Notify that the worker is ready
-  self.postMessage({ type: 'ready' });
-}
-
-// Set up the message handler
-setupMessageHandler();
+// Handle messages from the main thread                                                                                                                
+self.addEventListener('message', async (event) => {                                                                                                    
+  const { type, data } = event.data;                                                                                                                   
+                                                                                                                                                       
+  try {                                                                                                                                                
+    switch (type) {                                                                                                                                    
+      case 'initialize':                                                                                                                               
+        await initializeModel(data?.modelName);                                                                                                        
+        break;                                                                                                                                         
+                                                                                                                                                       
+      case 'transcribe':                                                                                                                               
+        if (!asr) {                                                                                                                                    
+          await initializeModel(data?.modelName);                                                                                                      
+        }                                                                                                                                              
+        await transcribeAudio(data.audio, data?.options);                                                                                              
+        break;                                                                                                                                         
+                                                                                                                                                       
+      case 'cancel':                                                                                                                                   
+        // TODO: Implement cancellation logic                                                                                                          
+        isProcessing = false;                                                                                                                          
+        self.postMessage({ type: 'status', message: 'Transcription cancelled' });                                                                      
+        break;                                                                                                                                         
+                                                                                                                                                       
+      default:                                                                                                                                         
+        self.postMessage({                                                                                                                             
+          type: 'error',                                                                                                                               
+          message: `Unknown command: ${type}`                                                                                                          
+        });                                                                                                                                            
+    }                                                                                                                                                  
+  } catch (error) {                                                                                                                                    
+    self.postMessage({                                                                                                                                 
+      type: 'error',                                                                                                                                   
+      message: error.message                                                                                                                           
+    });                                                                                                                                                
+  }                                                                                                                                                    
+});                                                                                                                                                    
+                                                                                                                                                       
+// Notify that the worker is ready                                                                                                                     
+self.postMessage({ type: 'ready' });          

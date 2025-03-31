@@ -39,75 +39,97 @@ class SpeechRecognitionService {
     
     try {
       // Create worker
-      this.worker = new Worker(new URL('./speechRecognition.worker.js', import.meta.url), { type: 'module' });
+      // Create worker - don't use module type since we're using importScripts                                                                               
+      this.worker = new Worker(new URL('./speechRecognition.worker.js', import.meta.url)); 
       
       // Set up message handling
-      this.worker.onmessage = (event) => {
-        const { type, message, progress, text } = event.data;
-        
-        switch (type) {
-          case 'status':
-            this.callbacks.onStatus(message);
-            break;
-            
-          case 'progress':
-            this.callbacks.onProgress(progress);
-            break;
-            
-          case 'result':
-            this.isProcessing = false;
-            this.callbacks.onResult(event.data);
-            break;
-            
-          case 'error':
-            this.isProcessing = false;
-            this.callbacks.onError(new Error(message));
-            break;
-            
-          case 'interim':
-            this.callbacks.onInterim(text);
-            break;
-            
-          case 'ready':
-            // Worker is ready, initialize the model
-            this.worker.postMessage({ 
-              type: 'initialize', 
-              data: { modelName: options.modelName || 'Xenova/whisper-base' } 
-            });
-            break;
-        }
-      };
+      // Set up message handling                                                                                                                       
+      this.worker.onmessage = (event) => {                                                                                                             
+        try {                                                                                                                                          
+          const { type, message, progress, text } = event.data;                                                                                        
+                                                                                                                                                       
+          console.log('Worker message received:', type, event.data);                                                                                   
+                                                                                                                                                       
+          switch (type) {                                                                                                                              
+            case 'status':                                                                                                                             
+              this.callbacks.onStatus(message);                                                                                                        
+              break;                                                                                                                                   
+                                                                                                                                                       
+            case 'progress':                                                                                                                           
+              this.callbacks.onProgress(progress);                                                                                                     
+              break;                                                                                                                                   
+                                                                                                                                                       
+            case 'result':                                                                                                                             
+              this.isProcessing = false;                                                                                                               
+              this.callbacks.onResult(event.data);                                                                                                     
+              break;                                                                                                                                   
+                                                                                                                                                       
+            case 'error':                                                                                                                              
+              this.isProcessing = false;                                                                                                               
+              this.callbacks.onError(new Error(message || 'Unknown worker error'));                                                                    
+              break;                                                                                                                                   
+                                                                                                                                                       
+            case 'interim':                                                                                                                            
+              this.callbacks.onInterim(text);                                                                                                          
+              break;                                                                                                                                   
+                                                                                                                                                       
+            case 'ready':                                                                                                                              
+              console.log('Worker is ready, initializing model...');                                                                                   
+              // Worker is ready, initialize the model                                                                                                 
+              this.worker.postMessage({                                                                                                                
+                type: 'initialize',                                                                                                                    
+                data: { modelName: options.modelName || 'Xenova/whisper-base' }                                                                        
+              });                                                                                                                                      
+              break;                                                                                                                                   
+                                                                                                                                                       
+            default:                                                                                                                                   
+              console.warn('Unknown message type from worker:', type);                                                                                 
+          }                                                                                                                                            
+        } catch (error) {                                                                                                                              
+          console.error('Error handling worker message:', error);                                                                                      
+          this.callbacks.onError(new Error(`Error handling worker message: ${error.message}`));                                                        
+          this.isProcessing = false;                                                                                                                   
+        }                                                                                                                                              
+      }; 
       
       // Handle worker errors
-      this.worker.onerror = (error) => {
-        console.error('Worker error:', error);
-        this.callbacks.onError(new Error(`Worker error: ${error.message}`));
-        this.isProcessing = false;
+        // Handle worker errors                                                                                                                              
+      this.worker.onerror = (error) => {                                                                                                                   
+        console.error('Worker error:', error);                                                                                                             
+        this.callbacks.onError(new Error(`Worker error: ${error.message || error.type || 'Unknown error'}`));                                              
+        this.isProcessing = false;                                                                                                                         
       };
       
-      // Wait for initialization to complete
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Initialization timed out'));
-        }, 60000); // 60 second timeout for model loading
-        
-        const statusHandler = (event) => {
-          const { type, message } = event.data;
-          
-          if (type === 'status' && message === 'Model loaded successfully') {
-            clearTimeout(timeout);
-            this.worker.removeEventListener('message', statusHandler);
-            this.isInitialized = true;
-            resolve();
-          } else if (type === 'error') {
-            clearTimeout(timeout);
-            this.worker.removeEventListener('message', statusHandler);
-            reject(new Error(message));
-          }
-        };
-        
-        this.worker.addEventListener('message', statusHandler);
-      });
+            // Wait for initialization to complete                                                                                                           
+            await new Promise((resolve, reject) => {                                                                                                         
+              const timeout = setTimeout(() => {                                                                                                             
+                reject(new Error('Initialization timed out after 60 seconds'));                                                                              
+              }, 60000); // 60 second timeout for model loading                                                                                              
+                                                                                                                                                             
+              const statusHandler = (event) => {                                                                                                             
+                try {                                                                                                                                        
+                  const { type, message } = event.data;                                                                                                      
+                  console.log('Initialization status:', type, message);                                                                                      
+                                                                                                                                                             
+                  if (type === 'status' && message === 'Model loaded successfully') {                                                                        
+                    clearTimeout(timeout);                                                                                                                   
+                    this.worker.removeEventListener('message', statusHandler);                                                                               
+                    this.isInitialized = true;                                                                                                               
+                    resolve();                                                                                                                               
+                  } else if (type === 'error') {                                                                                                             
+                    clearTimeout(timeout);                                                                                                                   
+                    this.worker.removeEventListener('message', statusHandler);                                                                               
+                    reject(new Error(message || 'Unknown error during initialization'));                                                                     
+                  }                                                                                                                                          
+                } catch (error) {                                                                                                                            
+                  clearTimeout(timeout);                                                                                                                     
+                  this.worker.removeEventListener('message', statusHandler);                                                                                 
+                  reject(new Error(`Error in status handler: ${error.message}`));                                                                            
+                }                                                                                                                                            
+              };                                                                                                                                             
+                                                                                                                                                             
+              this.worker.addEventListener('message', statusHandler);                                                                                        
+            });
       
       console.log('Speech recognition service initialized');
     } catch (error) {

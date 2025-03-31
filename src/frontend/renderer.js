@@ -9,6 +9,8 @@ let transcriptionText;
 let saveFormButton;
 let audioLevel;
 let waveformContainer;
+let loginContainer;  // Add these variables at the top level                                                                                           
+let mainContainer;   // Add these variables at the top level
 
 // Form fields
 let patientNameInput;
@@ -39,16 +41,15 @@ let lastRecordedAudioBlob = null;
 // Initialize the application
 document.addEventListener('DOMContentLoaded', initializeApp);
 
-
 window.addEventListener('error', (event) => {                                                                                                          
   console.error('Global error:', event.error);                                                                                                         
 });                                                                                                                                                    
                                                                                                                                                        
-// At the top of initializeApp                                                                                                                         
-console.log('DOM loaded, containers:', {                                                                                                               
-  loginContainer: loginContainer?.id,                                                                                                                  
-  mainContainer: mainContainer?.id                                                                                                                     
-}); 
+// // At the top of initializeApp                                                                                                                         
+// console.log('DOM loaded, containers:', {                                                                                                               
+//   loginContainer: loginContainer?.id,                                                                                                                  
+//   mainContainer: mainContainer?.id                                                                                                                     
+// }); 
 
 async function initializeApp() {
   console.log('Initializing application...');
@@ -56,6 +57,12 @@ async function initializeApp() {
   // Initialize the login component
   const loginContainer = document.getElementById('login-container');
   const mainContainer = document.getElementById('main-container');
+
+  // Now log the containers after they're defined                                                                                                      
+  console.log('DOM loaded, containers:', {                                                                                                             
+    loginContainer: loginContainer?.id,                                                                                                                
+    mainContainer: mainContainer?.id                                                                                                                   
+  }); 
   
   if (!loginContainer) {
     console.error('Login container not found');
