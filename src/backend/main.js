@@ -158,9 +158,42 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
-}                                                                                                                                                     
+}      
+
+// Import session module                                                                                                              
+const { session } = require('electron'); 
+
 // Initialize app when ready
-app.whenReady().then(() => {                                                                                                                           
+app.whenReady().then(() => {   
+  // Set Content Security Policy                                                                                                      
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {                                                        
+    callback({                                                                                                                        
+      responseHeaders: {                                                                                                              
+        ...details.responseHeaders,                                                                                                   
+        // Define a Content Security Policy                                                                                           
+        // Start restrictive and loosen as needed.                                                                                    
+        'Content-Security-Policy': [                                                                                                  
+          // Default to only allow loading from the app's origin ('self')                                                             
+          "default-src 'self';",                                                                                                      
+          // Allow scripts from 'self' and the Transformers CDN                                                                       
+          // Also allow a specific inline script needed by the frontend via its hash                                                  
+          // 'unsafe-eval' is needed for libraries like Transformers.js that use dynamic code generation (e.g., new Function())       
+          "script-src 'self' https://cdn.jsdelivr.net 'unsafe-eval' 'sha256-iHneBJCSLaFy0Iv1lFjenfav0BMO9vzxD3MqdkfWgLE=';",                                                                            
+          // Allow workers from 'self', blob URLs, and allow them to import scripts from the CDN 
+          // Explicitly allow script elements/imports from the CDN as well                                                            
+          "script-src-elem 'self' https://cdn.jsdelivr.net 'sha256-iHneBJCSLaFy0Iv1lFjenfav0BMO9vzxD3MqdkfWgLE=';",                                     
+          "worker-src 'self' blob: https://cdn.jsdelivr.net;",                                                                        
+          // Allow styles from 'self' (consider removing 'unsafe-inline' if possible)                                                 
+          "style-src 'self' 'unsafe-inline';",                                                                                        
+          // Allow images from 'self' and data URIs                                                                                   
+          "img-src 'self' data:;",                                                                                                    
+          // Allow connections (fetch, XHR) to 'self' and the CDN for model/resource loading                                          
+          "connect-src 'self' https://cdn.jsdelivr.net;"                                                                                                       
+        ].join(' ') // Directives are space-separated                                                                                 
+        }                                                                                                                               
+      });                                                                                                                               
+    });                                                                                                                                    
+
   // Start the server and then create the window                                                                                                         
   server.listen(port, 'localhost', () => {                                                                                                                            
     console.log(`Server running at http://localhost:${port}`);                                                                                           

@@ -38,9 +38,11 @@ class SpeechRecognitionService {
     }
     
     try {
-      // Create worker
-      // Create worker - don't use module type since we're using importScripts                                                                               
-      this.worker = new Worker(new URL('./speechRecognition.worker.js', import.meta.url)); 
+      // // Create worker - don't use module type since we're using importScripts                                                                               
+      // this.worker = new Worker(new URL('./speechRecognition.worker.js', import.meta.url)); 
+
+      // Create worker as type 'module' to allow dynamic import()                                                                     
+      this.worker = new Worker(new URL('./speechRecognition.worker.js', import.meta.url), { type: 'module' });
       
       // Set up message handling
       // Set up message handling                                                                                                                       
@@ -99,37 +101,41 @@ class SpeechRecognitionService {
         this.callbacks.onError(new Error(`Worker error: ${error.message || error.type || 'Unknown error'}`));                                              
         this.isProcessing = false;                                                                                                                         
       };
-      
-            // Wait for initialization to complete                                                                                                           
-            await new Promise((resolve, reject) => {                                                                                                         
-              const timeout = setTimeout(() => {                                                                                                             
-                reject(new Error('Initialization timed out after 60 seconds'));                                                                              
-              }, 60000); // 60 second timeout for model loading                                                                                              
-                                                                                                                                                             
-              const statusHandler = (event) => {                                                                                                             
-                try {                                                                                                                                        
-                  const { type, message } = event.data;                                                                                                      
-                  console.log('Initialization status:', type, message);                                                                                      
-                                                                                                                                                             
-                  if (type === 'status' && message === 'Model loaded successfully') {                                                                        
-                    clearTimeout(timeout);                                                                                                                   
-                    this.worker.removeEventListener('message', statusHandler);                                                                               
-                    this.isInitialized = true;                                                                                                               
-                    resolve();                                                                                                                               
-                  } else if (type === 'error') {                                                                                                             
-                    clearTimeout(timeout);                                                                                                                   
-                    this.worker.removeEventListener('message', statusHandler);                                                                               
-                    reject(new Error(message || 'Unknown error during initialization'));                                                                     
-                  }                                                                                                                                          
-                } catch (error) {                                                                                                                            
-                  clearTimeout(timeout);                                                                                                                     
-                  this.worker.removeEventListener('message', statusHandler);                                                                                 
-                  reject(new Error(`Error in status handler: ${error.message}`));                                                                            
-                }                                                                                                                                            
-              };                                                                                                                                             
-                                                                                                                                                             
-              this.worker.addEventListener('message', statusHandler);                                                                                        
-            });
+                                                                                                                                       
+        // --- Simplified Initialization Wait ---                                                                                       
+        // The service is considered "initialized" once the worker script loads.                                                        
+        // Model loading happens asynchronously upon first transcribe/initialize call.                                                  
+        // We wait for the 'worker_ready' signal from the worker.                                                                       
+        await new Promise((resolve, reject) => {                                                                                        
+          const timeout = setTimeout(() => {                                                                                            
+            reject(new Error('Worker readiness timed out after 30 seconds'));                                                           
+          }, 30000); // 30 second timeout for worker script load                                                                        
+                                                                                                                                    
+          const readyHandler = (event) => {                                                                                             
+            try {                                                                                                                       
+                // Listen for 'worker_ready' or an early error                                                                            
+                if (event.data.type === 'worker_ready') {                                                                                 
+                  console.log("Worker script is ready. Library/model loading will be triggered by 'initialize' message.");                
+                  clearTimeout(timeout);                                                                                                  
+                  this.worker.removeEventListener('message', readyHandler);                                                               
+                  this.isInitialized = true; // Mark service as ready to receive commands                                                 
+                  resolve();                                                                                                              
+                } else if (event.data.type === 'error') {                                                                                 
+                  // Handle errors during initial worker script execution/import attempt                                                  
+                  clearTimeout(timeout);                                                                                                  
+                  this.worker.removeEventListener('message', readyHandler);                                                               
+                  reject(new Error(`Worker initialization error: ${event.data.message || 'Unknown worker error'}`));                      
+                }                                                                                                                         
+            } catch (error) {                                                                                                           
+                clearTimeout(timeout);                                                                                                   
+                this.worker.removeEventListener('message', readyHandler);                                                                
+                reject(new Error(`Error in worker ready handler: ${error.message}`));                                                    
+            }                                                                                                                           
+          };                                                                                                                            
+                                                                                                                                       
+          this.worker.addEventListener('message', readyHandler);                                                                        
+        });                                                                                                                             
+      // --- End Simplified Initialization Wait ---  
       
       console.log('Speech recognition service initialized');
     } catch (error) {

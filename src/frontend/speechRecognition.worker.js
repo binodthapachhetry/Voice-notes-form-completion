@@ -1,123 +1,50 @@
-// Import transformers.js in worker context                                                                                                            
+
+// Use dynamic import for transformers.js in a module worker context                                                                  
+                                                                                                                                      
+// Define library path                                                                                                                
+const TRANSFORMERS_CDN_URL = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js';                     
+                                                                                                                                      
+// Global variables                                                                                                                   
+let pipeline = null; // Will be assigned after import                                                                                 
+let env = null;      // Will be assigned after import                                                                                 
+let asr = null;                                                                                                                       
+let isProcessing = false;                                                                                                             
+let initializationPromise = null; // To track initialization state 
+
+
 try {                                                                                                                                                  
   // Use CDN URL for the worker - use the UMD build which exposes global variables                                                                     
-  importScripts('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.umd.min.js');                                              
-                                                                                                                                                       
-  // Log successful import and check what's available                                                                                                  
-  console.log('Transformers.js loaded successfully via importScripts');                                                                                
-  console.log('Available globals:', Object.keys(self));                                                                                                
-                                                                                                                                                       
-  // Access the global Transformers object                                                                                                             
-  if (self.Transformers) {                                                                                                                             
-    const { pipeline, env } = self.Transformers;                                                                                                       
-                                                                                                                                                       
-    // Log to verify pipeline is a function                                                                                                            
-    console.log('Pipeline type:', typeof pipeline);                                                                                                    
-                                                                                                                                                       
-    // Set environment variables for transformers.js                                                                                                   
-    env.allowLocalModels = true;                                                                                                                       
-    env.useBrowserCache = true;                                                                                                                        
-    env.cacheDir = './models';                                                                                                                         
-    env.useQuantizedModels = true;                                                                                                                     
-                                                                                                                                                       
-    // Initialize the worker with the imported modules                                                                                                 
-    initWorker(pipeline, env);                                                                                                                         
-                                                                                                                                                       
-    // Notify that the worker is ready                                                                                                                 
-    self.postMessage({ type: 'ready' });                                                                                                               
-  } else {                                                                                                                                             
-    throw new Error('Transformers global object not found');                                                                                           
-  }                                                                                                                                                    
-} catch (error) {                                                                                                                                      
-  console.error('Failed to load Transformers.js via importScripts:', error);                                                                           
-                                                                                                                                                       
-  // Fallback to fetch + eval approach                                                                                                                 
-  fetch('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.umd.min.js')                                                       
-    .then(response => response.text())                                                                                                                 
-    .then(code => {                                                                                                                                    
-      // Evaluate the code to create the global Transformers object                                                                                    
-      eval(code);                                                                                                                                      
-                                                                                                                                                       
-      if (self.Transformers) {                                                                                                                         
-        const { pipeline, env } = self.Transformers;                                                                                                   
-                                                                                                                                                       
-        // Set environment variables for transformers.js                                                                                               
-        env.allowLocalModels = true;                                                                                                                   
-        env.useBrowserCache = true;                                                                                                                    
-        env.cacheDir = './models';                                                                                                                     
-        env.useQuantizedModels = true;                                                                                                                 
-                                                                                                                                                       
-        // Initialize the worker with the imported modules                                                                                             
-        initWorker(pipeline, env);                                                                                                                     
-                                                                                                                                                       
-        // Notify that the worker is ready                                                                                                             
-        self.postMessage({ type: 'ready' });                                                                                                           
-      } else {                                                                                                                                         
-        throw new Error('Transformers global object not found after eval');                                                                            
-      }                                                                                                                                                
-    })                                                                                                                                                 
-    .catch(err => {                                                                                                                                    
-      console.error('Failed to load Transformers.js via fetch+eval:', err);                                                                            
-      self.postMessage({                                                                                                                               
-        type: 'error',                                                                                                                                 
-        message: `Failed to load Transformers.js: ${err.message}`                                                                                      
-      });                                                                                                                                              
-    });                                                                                                                                                
-}       
-
-// Global variables                                                                                                                                    
-let asr = null;                                                                                                                                        
-let isProcessing = false;                                                                                                                              
-                                                                                                                                                       
-// Initialize the worker with the imported modules                                                                                                     
-function initWorker(pipeline, env) {                                                                                                                   
-  // Set up message handler                                                                                                                            
-  self.addEventListener('message', async (event) => {                                                                                                  
-    try {                                                                                                                                              
-      const { type, data } = event.data;                                                                                                               
-                                                                                                                                                       
-      switch (type) {                                                                                                                                  
-        case 'initialize':                                                                                                                             
-          await initializeModel(pipeline, env, data?.modelName);                                                                                       
-          break;                                                                                                                                       
-                                                                                                                                                       
-        case 'transcribe':                                                                                                                             
-          if (!asr) {                                                                                                                                  
-            await initializeModel(pipeline, env, data?.modelName);                                                                                     
-          }                                                                                                                                            
-          await transcribeAudio(data.audio, data?.options);                                                                                            
-          break;                                                                                                                                       
-                                                                                                                                                       
-        case 'cancel':                                                                                                                                 
-          // Implement cancellation logic                                                                                                              
-          isProcessing = false;                                                                                                                        
-          self.postMessage({ type: 'status', message: 'Transcription cancelled' });                                                                    
-          break;                                                                                                                                       
-                                                                                                                                                       
-        default:                                                                                                                                       
-          self.postMessage({                                                                                                                           
-            type: 'error',                                                                                                                             
-            message: `Unknown command: ${type}`                                                                                                        
-          });                                                                                                                                          
-      }                                                                                                                                                
-    } catch (error) {                                                                                                                                  
-      console.error('Error in worker message handler:', error);                                                                                        
-      self.postMessage({                                                                                                                               
-        type: 'error',                                                                                                                                 
-        message: `Worker error: ${error.message || 'Unknown error'}`                                                                                   
-      });                                                                                                                                              
-    }                                                                                                                                                  
-  });                                                                                                                                                  
-}                                                                                                                                                     
+                                                                                                                                                
                                                                                                                                                        
 // Initialize the model                                                                                                                                
-async function initializeModel(pipeline, env, modelName = 'Xenova/whisper-base') {                                                                                     
+async function initializeModel(modelName = 'Xenova/whisper-base') {                                                                   
+  // Ensure Transformers library is loaded first                                                                                      
+  if (!pipeline || !env) {                                                                                                            
+    if (!initializationPromise) {                                                                                                     
+    // Start loading if not already started                                                                                         
+    initializationPromise = loadTransformersLibrary();                                                                              
+    }                                                                                                                                 
+    // Wait for loading to complete                                                                                                   
+    await initializationPromise;                                                                                                      
+  }                                                                                                                                                                                                                                                                       
+  // Check again after waiting                                                                                                        
+  if (!pipeline || !env) {                                                                                                            
+    throw new Error("Transformers library failed to load.");                                                                        
+  }                                                                                                                                   
+                                                                                       
   // Configure the environment                                                                                                                         
   try {
+    // Set environment variables using the imported 'env'                                                                             
+    env.allowLocalModels = true;                                                                                                      
+    env.useBrowserCache = true;                                                                                                       
+    env.cacheDir = './models'; // This might be less effective in workers, relies on Cache API                                        
+    env.useQuantizedModels = true; // Default to quantized
+
     // Send status update
     self.postMessage({ type: 'status', message: 'Loading model...' });
     
     // Load the ASR pipeline with the specified model
+    // Use the imported 'pipeline' function
     asr = await pipeline('automatic-speech-recognition', modelName, {
       quantized: true, // Use quantized model for better performance
       progress_callback: (progress) => {
@@ -128,7 +55,7 @@ async function initializeModel(pipeline, env, modelName = 'Xenova/whisper-base')
           progress: progress.progress * 100 
         });
       }
-    });
+    }); // pipeline() call ends here
     
     // Model loaded successfully
     self.postMessage({ 
@@ -140,11 +67,11 @@ async function initializeModel(pipeline, env, modelName = 'Xenova/whisper-base')
     return true;
   } catch (error) {
     // Report error
-    self.postMessage({ 
-      type: 'error', 
-      message: `Failed to load model: ${error.message}` 
+    console.error("Model initialization error:", error); // Log detailed error                                                        
+    self.postMessage({                                                                                                                
+      type: 'error',                                                                                                                  
+      message: `Failed to load model: ${error.message}`                                                                               
     });
-    
     return false;
   }
 }
@@ -152,13 +79,13 @@ async function initializeModel(pipeline, env, modelName = 'Xenova/whisper-base')
 // Transcribe audio
 async function transcribeAudio(audioData, options = {}) {
   if (!asr) {
+    // Or alternatively: await initializeModel(); if not initialized 
     throw new Error('Model not initialized');
   }
   
   if (isProcessing) {
     throw new Error('Already processing audio');
   }
-  
   isProcessing = true;
   
   try {
@@ -172,13 +99,13 @@ async function transcribeAudio(audioData, options = {}) {
     };
     
     // Merge with user options
-    const transcriptionOptions = { ...defaultOptions, ...options };
+    const transcriptionOptions = { ...defaultOptions, ...(options || {}) }; 
     
     // Start transcription
     self.postMessage({ type: 'status', message: 'Transcribing audio...' });
     
     // Process the audio in chunks with progress updates
-    const result = await asr(audioData, {
+    const result = await asr(audioData, { // Ensure audioData is in the correct format (e.g., Float32Array) if needed by the model
       ...transcriptionOptions,
       callback_function: (progress) => {
         // Report transcription progress
@@ -199,7 +126,8 @@ async function transcribeAudio(audioData, options = {}) {
         }
       }
     });
-    
+
+    console.log("Transcription result:", result); // Log the raw result 
     // Send the final result
     self.postMessage({ 
       type: 'result', 
@@ -207,14 +135,14 @@ async function transcribeAudio(audioData, options = {}) {
       language: result.language,
       duration: result.duration
     });
-    
     return result;
   } catch (error) {
     // Report error
-    self.postMessage({ 
-      type: 'error', 
-      message: `Transcription failed: ${error.message}` 
-    });
+    console.error("Transcription error:", error); // Log detailed error                                                               
+    self.postMessage({                                                                                                                
+      type: 'error',                                                                                                                  
+      message: `Transcription failed: ${error.message}`                                                                               
+    }); 
     
     throw error;
   } finally {
@@ -223,24 +151,34 @@ async function transcribeAudio(audioData, options = {}) {
 }
 
 // Handle messages from the main thread                                                                                                                
-self.addEventListener('message', async (event) => {                                                                                                    
-  const { type, data } = event.data;                                                                                                                   
+self.onmessage = async (event) => { // Use onmessage directly                                                                         
+  const { type, data } = event.data;                                                                                                                    
                                                                                                                                                        
   try {                                                                                                                                                
     switch (type) {                                                                                                                                    
       case 'initialize':                                                                                                                               
+        // Ensure library is loaded before initializing model                                                                         
+        if (!initializationPromise) {                                                                                                 
+          initializationPromise = loadTransformersLibrary();                                                                        
+        }                                                                                                                             
+        await initializationPromise; // Wait for library load if needed                                                               
         await initializeModel(data?.modelName);                                                                                                        
         break;                                                                                                                                         
                                                                                                                                                        
       case 'transcribe':                                                                                                                               
-        if (!asr) {                                                                                                                                    
-          await initializeModel(data?.modelName);                                                                                                      
+        if (!asr) { // Ensure model is ready                                                                                          
+          console.warn("Transcribe called before model initialization. Initializing now...");                                       
+          await initializeModel(data?.modelName); // This will also wait for library load if needed                                                                                                      
         }                                                                                                                                              
-        await transcribeAudio(data.audio, data?.options);                                                                                              
+        if (asr) { // Check if model loaded successfully                                                                              
+           await transcribeAudio(data.audio, data?.options);                                                                         
+        } else {                                                                                                                      
+          throw new Error("Cannot transcribe: Model failed to initialize.");                                                        
+        }                                                                                                
         break;                                                                                                                                         
                                                                                                                                                        
       case 'cancel':                                                                                                                                   
-        // TODO: Implement cancellation logic                                                                                                          
+        // TODO: Implement more robust cancellation if possible within Transformers.js                                                                                                         
         isProcessing = false;                                                                                                                          
         self.postMessage({ type: 'status', message: 'Transcription cancelled' });                                                                      
         break;                                                                                                                                         
@@ -251,13 +189,38 @@ self.addEventListener('message', async (event) => {
           message: `Unknown command: ${type}`                                                                                                          
         });                                                                                                                                            
     }                                                                                                                                                  
-  } catch (error) {                                                                                                                                    
+  } catch (error) {   
+    console.error('Error in worker message handler:', error);                                                                                                                                 
     self.postMessage({                                                                                                                                 
       type: 'error',                                                                                                                                   
-      message: error.message                                                                                                                           
-    });                                                                                                                                                
-  }                                                                                                                                                    
-});                                                                                                                                                    
-                                                                                                                                                       
-// Notify that the worker is ready                                                                                                                     
-self.postMessage({ type: 'ready' });          
+      message: `Worker error: ${error.message || 'Unknown error'}`                                                                    
+    });                                                                                                                               
+  }                                                                                                                                   
+};                                                                                                                                    
+                                                                                                                                     
+// Function to load the library                                                                                                       
+async function loadTransformersLibrary() {                                                                                            
+  try {                                                                                                                             
+    console.log(`Attempting to import Transformers.js from ${TRANSFORMERS_CDN_URL}`);                                             
+    const module = await import(TRANSFORMERS_CDN_URL);                                                                            
+    console.log("Transformers.js module loaded:", module);                                                                        
+    // Assign the specific exports needed                                                                                         
+    pipeline = module.pipeline;                                                                                                   
+    env = module.env;                                                                                                             
+    if (typeof pipeline !== 'function') {                                                                                         
+      throw new Error(`'pipeline' function not found in the imported module. Available keys: ${Object.keys(module)}`);          
+    }                                                                                                                             
+    self.postMessage({ type: 'status', message: 'Transformers library loaded.' }); // Notify main thread                          
+  } catch (error) {                                                                                                                 
+    console.error('Failed to dynamically import Transformers.js:', error);                                                        
+    self.postMessage({ type: 'error', message: `Failed to load Transformers library: ${error.message}` });                        
+      throw error; // Re-throw to prevent further execution attempts                                                                
+  }                                                                                                                                 
+}                                                                                                                                  
+                                                                                                                                      
+// --- Initiate library loading immediately when worker starts ---                                                                    
+// We don't wait here, but message handler will await initializationPromise                                                           
+initializationPromise = loadTransformersLibrary();                                                                                    
+                                                                                                                                      
+// Notify main thread that the worker script itself has loaded (library loading starts async)                                         
+self.postMessage({ type: 'worker_ready' }); // Use a different message than the old 'ready'                                             
