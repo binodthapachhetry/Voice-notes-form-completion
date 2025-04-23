@@ -197,6 +197,16 @@ self.onmessage = async (event) => { // Use onmessage directly
 async function loadTransformersLibrary() {                                                                                            
   try {                                                                                                                             
     console.log(`Attempting to import Transformers.js from ${TRANSFORMERS_CDN_URL}`);                                             
+    // Check if fetch is available and working
+    const preCheck = await fetch(TRANSFORMERS_CDN_URL, { method: 'HEAD' })
+      .catch(err => {
+        throw new Error(`CDN availability check failed: ${err.message}`);
+      });
+      
+    if (!preCheck.ok) {
+      throw new Error(`CDN returned status ${preCheck.status} ${preCheck.statusText}`);
+    }
+    
     const module = await import(TRANSFORMERS_CDN_URL);                                                                            
     console.log("Transformers.js module loaded:", module);                                                                        
     // Assign the specific exports needed                                                                                         
@@ -209,7 +219,7 @@ async function loadTransformersLibrary() {
   } catch (error) {                                                                                                                 
     console.error('Failed to dynamically import Transformers.js:', error);                                                        
     self.postMessage({ type: 'error', message: `Failed to load Transformers library: ${error.message}` });                        
-      throw error; // Re-throw to prevent further execution attempts                                                                
+    throw error; // Re-throw to prevent further execution attempts                                                                
   }                                                                                                                                 
 }                                                                                                                                  
                                                                                                                                       
