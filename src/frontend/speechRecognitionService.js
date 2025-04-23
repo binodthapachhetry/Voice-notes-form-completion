@@ -98,9 +98,9 @@ class SpeechRecognitionService {
         // Handle worker errors                                                                                                                              
       this.worker.onerror = (error) => {                                                                                                                   
         // Log the raw event first
-        console.error('Raw Worker error event:', error);
+        // console.error('Raw Worker error event:', error);
         // Log specific potentially useful properties
-        console.error(`Worker error details: message='${error.message}', filename='${error.filename}', lineno='${error.lineno}', colno='${error.colno}', type='${error.type}'`);
+        // console.error(`Worker error details: message='${error.message}', filename='${error.filename}', lineno='${error.lineno}', colno='${error.colno}', type='${error.type}'`);
         // Construct a more informative error message if possible
         const errorMessage = error.message ? `Worker error: ${error.message}` : `Worker failed to load/initialize (type: ${error.type}, file: ${error.filename}, line: ${error.lineno})`;
         this.callbacks.onError(new Error(errorMessage));
