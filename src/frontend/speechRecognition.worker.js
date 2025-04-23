@@ -32,7 +32,12 @@ async function initializeModel(modelName = 'Xenova/whisper-base') {
     // Set environment variables using the imported 'env'                                                                             
     env.allowLocalModels = true;                                                                                                      
     env.useBrowserCache = true;                                                                                                       
-    env.cacheDir = './models'; // This might be less effective in workers, relies on Cache API                                        
+    // env.cacheDir = './models'; // This might be less effective in workers, relies on Cache API 
+    // Don't use local path - use CDN instead to avoid CSP issues                                                                      
+    env.cacheDir = undefined;                                                                                                          
+    // Specify CDN explicitly to avoid Hugging Face requests                                                                           
+    env.remotePath = 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/';
+
     env.useQuantizedModels = true; // Default to quantized
 
     // Send status update
@@ -42,6 +47,12 @@ async function initializeModel(modelName = 'Xenova/whisper-base') {
     // Use the imported 'pipeline' function
     asr = await pipeline('automatic-speech-recognition', modelName, {
       quantized: true, // Use quantized model for better performance
+
+      revision: 'main', // Ensure we're using the main branch version                                                                  
+      model_file: 'model.onnx', // Specify model file explicitly                                                                       
+      config: { use_remote: true }, // Force remote loading from CDN                                                                   
+      use_remote: true, // Force using remotePath defined in env 
+
       progress_callback: (progress) => {
         // Report loading progress
         self.postMessage({ 
