@@ -11,11 +11,6 @@ let asr = null;
 let isProcessing = false;                                                                                                             
 let initializationPromise = null; // To track initialization state 
 
-
-try {                                                                                                                                                  
-  // Use CDN URL for the worker - use the UMD build which exposes global variables                                                                     
-                                                                                                                                                
-                                                                                                                                                       
 // Initialize the model                                                                                                                                
 async function initializeModel(modelName = 'Xenova/whisper-base') {                                                                   
   // Ensure Transformers library is loaded first                                                                                      
