@@ -124,6 +124,14 @@ class SpeechRecognitionService {
                   clearTimeout(timeout);                                                                                                  
                   this.worker.removeEventListener('message', readyHandler);                                                               
                   this.isInitialized = true; // Mark service as ready to receive commands                                                 
+                
+                  // Explicitly send initialize message to load the model
+                  console.log("Explicitly initializing the model now...");
+                  this.worker.postMessage({
+                    type: 'initialize',
+                    data: { modelName: options.modelName || 'Xenova/whisper-base' }
+                  });
+                
                   resolve();                                                                                                              
                 } else if (event.data.type === 'error') {                                                                                 
                   // Handle errors during initial worker script execution/import attempt                                                  
