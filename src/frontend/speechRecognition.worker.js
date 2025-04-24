@@ -29,20 +29,29 @@ async function initializeModel(modelName = 'Xenova/whisper-base') {
                                                                                        
   // Configure the environment                                                                                                                         
   try {
+    // IMPORTANT: Reset any previously configured environment                                                                          
+    // to ensure we're starting fresh with default settings                                                                            
+    delete env.remoteHost;                                                                                                             
+    delete env.backends; 
+
     // Set environment variables using the imported 'env'                                                                             
     env.allowLocalModels = true;                                                                                                      
     env.useBrowserCache = true;                                                                                                       
-    // Set cache directory - but allow it to still use HF Hub if needed
-    env.cacheDir = './models'; 
-    // Configure to use only CDN path (avoid huggingface.co CSP issues)
-    env.backends = {
-      cdn: {
-        baseUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers-models@latest'
-      }
-    };
+    // // Set cache directory - but allow it to still use HF Hub if needed
+    // env.cacheDir = './models'; 
+    // // Configure to use only CDN path (avoid huggingface.co CSP issues)
+    // env.backends = {
+    //   cdn: {
+    //     baseUrl: 'https://cdn.jsdelivr.net/npm/@xenova/transformers-models@latest'
+    //   }
+    // };
     
-    // Force using only the CDN backend
-    env.remoteHost = 'cdn';
+    // // Force using only the CDN backend
+    // env.remoteHost = 'cdn';
+
+    
+    // Set cache directory                                                                                                             
+    env.cacheDir = './models'; 
 
     env.useQuantizedModels = true; // Default to quantized
 
